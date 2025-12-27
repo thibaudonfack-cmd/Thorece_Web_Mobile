@@ -1,7 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import MiniGameOverlay from '../../minigames/components/MiniGameOverlay';
 
 export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
     const iframeRef = useRef(null);
+    const [miniGameId, setMiniGameId] = useState(null);
+
+    const handleGameComplete = (success, targetScene) => {
+        if (iframeRef.current) {
+            iframeRef.current.contentWindow.postMessage(
+                { type: 'GAME_COMPLETE', scene: targetScene, success },
+                '*'
+            );
+        }
+        setMiniGameId(null);
+    };
 
     useEffect(() => {
         if (!storyJson) return;
@@ -14,6 +26,8 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                     { type: 'LOAD_STORY', story: storyJson },
                     '*'
                 );
+            } else if (event.data.type === 'TRIGGER_GAME') {
+                setMiniGameId(event.data.gameId);
             }
         };
 
@@ -49,6 +63,21 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
             <div id="tuesday"></div>
             <script src="/tuesday.js"></script>
             <script>
+                // Listen for creation_dialog event to detect game triggers
+                document.addEventListener('creation_dialog', function() {
+                     const storyVars = window.story_json && window.story_json.parameters && window.story_json.parameters.variables;
+                     if (storyVars && storyVars.trigger_game_id) {
+                         window.parent.postMessage({ 
+                             type: 'TRIGGER_GAME', 
+                             gameId: storyVars.trigger_game_id 
+                         }, '*');
+                         
+                         // Pause interactions in the engine
+                         const engineEl = document.getElementById('tuesday');
+                         if (engineEl) engineEl.style.pointerEvents = 'none';
+                     }
+                });
+
                 window.addEventListener('message', function(event) {
                     if (event.data.type === 'LOAD_STORY') {
                         let story = event.data.story;
@@ -71,6 +100,21 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                         } else {
                             console.error("load_story function not found");
                         }
+                    } else if (event.data.type === 'GAME_COMPLETE') {
+                        // Resume interactions
+                        const engineEl = document.getElementById('tuesday');
+                        if (engineEl) engineEl.style.pointerEvents = 'auto';
+
+                        // Clear trigger to avoid re-looping if staying on same scene (though usually we jump)
+                        if (window.story_json && window.story_json.parameters && window.story_json.parameters.variables) {
+                             window.story_json.parameters.variables.trigger_game_id = null;
+                        }
+
+                        if (typeof go_to === 'function' && event.data.scene) {
+                            go_to(event.data.scene);
+                        } else {
+                            console.warn("go_to function missing or scene not provided");
+                        }
                     }
                 });
 
@@ -81,12 +125,17 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
     `;
 
     return (
-        <iframe
-            ref={iframeRef}
-            srcDoc={iframeContent}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Tuesday Reader"
-            sandbox="allow-scripts allow-same-origin"
-        />
+        <div className="relative w-full h-full">
+            <iframe
+                ref={iframeRef}
+                srcDoc={iframeContent}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Tuesday Reader"
+                sandbox="allow-scripts allow-same-origin"
+            />
+            {miniGameId && (
+                <MiniGameOverlay id={miniGameId} onComplete={handleGameComplete} />
+            )}
+        </div>
     );
 }

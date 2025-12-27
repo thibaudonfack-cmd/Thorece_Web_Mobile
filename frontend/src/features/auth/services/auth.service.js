@@ -197,5 +197,16 @@ export const authService = {
             throw new Error(errorText || "Error uploading image.");
         }
         return await response.json();
+    },
+
+    updateUserXp: async (amount) => {
+        const response = await fetchWithAuth("/users/xp", {
+            method: "POST",
+            body: JSON.stringify({ amount }),
+        });
+        if (!response.ok) {
+             throw new Error("Failed to update XP");
+        }
+        return response;
     }
 };

@@ -28,6 +28,9 @@ public class MiniGame {
     @JoinColumn(name = "page_id")
     private Page parentPage;
 
+    @Column(nullable = false)
+    private Integer xpReward = 10;
+
     private Integer successPageNumber;
     private Integer failurePageNumber;
 

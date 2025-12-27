@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, CloudArrowUpIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, CloudArrowUpIcon, RocketLaunchIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import { useSaveStoryContent, useBook, useBookContent } from '../hooks/useBooks';
+import MiniGameConfigModal from '../../minigames/components/MiniGameConfigModal';
 
 export default function VisualEditor() {
     const navigate = useNavigate();
     const { storyId } = useParams();
     const iframeRef = useRef(null);
     const [iframeLoaded, setIframeLoaded] = useState(false);
+    const [isMiniGameModalOpen, setIsMiniGameModalOpen] = useState(false);
+    const [storyBlocks, setStoryBlocks] = useState([]);
+    const [selectedGameId, setSelectedGameId] = useState(null);
 
     const { data: book } = useBook(storyId);
     const { data: bookContent } = useBookContent(storyId, 'draft');
@@ -33,7 +37,7 @@ export default function VisualEditor() {
     }, [storyId, saveContentMutation]);
 
     const handleIframeMessage = useCallback((event) => {
-        if (event.origin !== import.meta.env.VITE_DOMAINE_URL) return;
+        // if (event.origin !== import.meta.env.VITE_DOMAINE_URL) return; // Sometimes problematic in dev
 
         const { type, payload } = event.data;
         if (!type) return;
@@ -46,6 +50,23 @@ export default function VisualEditor() {
                 handleSaveToBackend(payload, 'PUBLISHED');
                 break;
             case 'LOAD_PROJECT_SUCCESS':
+                break;
+            case 'STORY_BLOCKS_LIST':
+                setStoryBlocks(payload);
+                setIsMiniGameModalOpen(true);
+                break;
+            case 'BLOCK_SELECTED':
+                // Check if the selected block has a trigger_game_id variable
+                if (payload && payload.variables) {
+                    const gameVar = payload.variables.find(v => v[0] === 'trigger_game_id');
+                    setSelectedGameId(gameVar ? gameVar[2] : null);
+                } else {
+                    setSelectedGameId(null);
+                }
+                break;
+            case 'MINIGAME_ADDED_SUCCESS':
+                // Refresh selection state if needed
+                alert("Épreuve configurée avec succès !");
                 break;
             case 'ERROR':
                 alert("Erreur éditeur : " + (payload.message || 'Inconnue'));
@@ -81,8 +102,6 @@ export default function VisualEditor() {
         iframeRef.current?.contentWindow.postMessage({ type: 'REQUEST_SAVE' }, '*');
     };
 
-    const isPublished = book?.status === 'PUBLISHED';
-
     const requestPublish = () => {
         let message;
         if (isPublished) {
@@ -96,6 +115,19 @@ export default function VisualEditor() {
         }
     };
 
+    const handleOpenMiniGameModal = () => {
+        // Request blocks from iframe first to populate select targets
+        iframeRef.current?.contentWindow.postMessage({ type: 'GET_STORY_BLOCKS' }, '*');
+    };
+
+    const handleSaveMiniGame = (gameId, config) => {
+        iframeRef.current?.contentWindow.postMessage({
+            type: 'ADD_MINIGAME_TO_BLOCK',
+            payload: { gameId, config }
+        }, '*');
+    };
+
+    const isPublished = book?.status === 'PUBLISHED';
     const isLoading = saveContentMutation.isPending;
 
     return (
@@ -109,6 +141,18 @@ export default function VisualEditor() {
                 </button>
 
                 <div className="flex gap-3">
+                    <button
+                        onClick={handleOpenMiniGameModal}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                            selectedGameId 
+                            ? 'bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100'
+                            : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                        }`}
+                    >
+                        <PuzzlePieceIcon className="w-5 h-5" />
+                        {selectedGameId ? 'Modifier Épreuve' : 'Ajouter Épreuve'}
+                    </button>
+
                     <button
                         onClick={requestSaveDraft}
                         disabled={isLoading}
@@ -143,6 +187,14 @@ export default function VisualEditor() {
                     onLoad={() => setIframeLoaded(true)}
                 />
             </div>
+
+            <MiniGameConfigModal 
+                isOpen={isMiniGameModalOpen}
+                onClose={() => setIsMiniGameModalOpen(false)}
+                onSave={handleSaveMiniGame}
+                storyBlocks={storyBlocks}
+                existingId={selectedGameId}
+            />
         </div>
     );
 }

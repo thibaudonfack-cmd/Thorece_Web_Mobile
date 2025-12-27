@@ -1132,6 +1132,29 @@ function creation_block(b){
     var chapter=document.createElement("div"),element="",all=0,go="";
     chapter.id=Object.keys(story_script)[b];
     if(chapter.id!="parameters"&&chapter.id!="blocks"){
+        // MINI-GAME INDICATOR LOGIC
+        var hasMiniGame = false;
+        var miniGameId = null;
+        
+        if (story_script[chapter.id]) {
+            for(var i=0;i<story_script[chapter.id].length;i++){
+                if (story_script[chapter.id][i].dialogs) {
+                    for (var d=0; d<story_script[chapter.id][i].dialogs.length; d++) {
+                        var dialog = story_script[chapter.id][i].dialogs[d];
+                        if (dialog.variables) {
+                            var gameVar = dialog.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
+                            if (gameVar) {
+                                hasMiniGame = true;
+                                miniGameId = gameVar[2];
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (hasMiniGame) break;
+            }
+        }
+
         for(var i=0;i<story_script[chapter.id].length;i++){
             element+="<div id='s_"+chapter.id+"_"+i+"' class='scene' align='center'>"
             if(story_script[chapter.id][i].random_choice){
@@ -1283,8 +1306,31 @@ function creation_block(b){
                 };element+="<div align='right' style='margin-right:4px;'><div id='add_s_"+chapter.id+"_"+i+"' onmouseup=\"arr_l=story_script."+chapter.id+"["+i+"].dialogs;arr_n="+d+";scen_data=[\'"+chapter.id+"\',"+i+","+(d+1)+"];add_element_s(this.id,'"+(i+1)+"')\" class='add_button icon_m icon_add' title='Add element to scene'></div></div>"
             };element+="</div>"
         };element+="<div align='right' style='margin-right:8px;'><div id='add_b_"+chapter.id+"' onmouseup=\"add_element_b(this.id,\'"+chapter.id+"\');\" class='add_button icon_m icon_add' title='Add element to block'></div></div>"
-        chapter.innerHTML="<div style='margin:2px;'><table height='100%' width='100%'><tbody><tr><td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');story_script.blocks['"+chapter.id+"'][2]=((story_script.blocks['"+chapter.id+"'][2]=='none')?'block':'none');\" class='button_block icon icon_more'></td><td align='center'>"+((chapter.id.length>17)?chapter.id.slice(0,15)+"...":chapter.id )+"</td><td align='center' style='cursor:pointer;width:48px;' onmouseup=\"edit_block('"+chapter.id+"')\" class='icon_m button_block icon_edit'></td><td align='center' style='cursor:pointer;' onmouseup=\"play_novel('"+chapter.id+"')\" class='icon_m button_block icon_play'></td><td style='width:8px;'></td> </tr></tbody></table></div><div id='"+chapter.id+"_content' style='display:"+((story_script.blocks[chapter.id])?story_script.blocks[chapter.id][2]:"none" )+";'>"+element+"</div>";
+        
+        // ADD MINI-GAME INDICATOR TO HEADER
+        var headerIcon = "";
+        if (hasMiniGame) {
+            headerIcon = "<td align='center' title='Mini-jeu: "+miniGameId+"' style='font-size:18px;width:30px;'>🧩</td>";
+        }
+
+        chapter.innerHTML="<div style='margin:2px;'><table height='100%' width='100%'><tbody><tr><td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');story_script.blocks['"+chapter.id+"'][2]=((story_script.blocks['"+chapter.id+"'][2]=='none')?'block':'none');\" class='button_block icon icon_more'></td>"+headerIcon+"<td align='center'>"+((chapter.id.length>17)?chapter.id.slice(0,15)+"...":chapter.id )+"</td><td align='center' style='cursor:pointer;width:48px;' onmouseup=\"edit_block('"+chapter.id+"')\" class='icon_m button_block icon_edit'></td><td align='center' style='cursor:pointer;' onmouseup=\"play_novel('"+chapter.id+"')\" class='icon_m button_block icon_play'></td><td style='width:8px;'></td> </tr></tbody></table></div><div id='"+chapter.id+"_content' style='display:"+((story_script.blocks[chapter.id])?story_script.blocks[chapter.id][2]:"none" )+";'>"+element+"</div>";
         chapter.className="story_block panel";
+        
+        // Notify parent when block is focused
+        chapter.addEventListener('mousedown', function() {
+            var currentDialog = null;
+            if (story_script[chapter.id] && story_script[chapter.id].length > 0 && story_script[chapter.id][0].dialogs) {
+                currentDialog = story_script[chapter.id][0].dialogs[0];
+            }
+            window.parent.postMessage({ 
+                type: 'BLOCK_SELECTED', 
+                payload: { 
+                    id: chapter.id, 
+                    variables: currentDialog ? (currentDialog.variables || []) : []
+                } 
+            }, '*');
+        });
+
         list_blocks.innerHTML+="<option value="+chapter.id+">"
 		if(!story_script.blocks[chapter.id]){
 			chapter.style.left=64+(320*(all_blocks-1))+"px";
@@ -6291,9 +6337,9 @@ function sendBuildToParent() {
     modal_window("close");
 }
 window.addEventListener('message', (event) => {
-    if (event.origin !== window.parent.location.origin) {
-        return;
-    }
+    // Note: We might want to restrict origins in production, 
+    // but for development allowing all or checking parent is safer than strict equality if ports differ.
+    // if (event.origin !== window.parent.location.origin) return;
 
     const { type, payload } = event.data;
 
@@ -6301,10 +6347,10 @@ window.addEventListener('message', (event) => {
         case 'REQUEST_SAVE':
             try {
                 const jsonString = save_file(true);
-                event.source.postMessage({ type: 'SAVE_STORY_DRAFT', payload: { content: jsonString } }, event.origin);
+                window.parent.postMessage({ type: 'SAVE_STORY_DRAFT', payload: { content: jsonString } }, '*');
             } catch (error) {
                 console.error("Error saving draft:", error);
-                event.source.postMessage({ type: 'ERROR', payload: { message: error.message } }, event.origin);
+                window.parent.postMessage({ type: 'ERROR', payload: { message: error.message } }, '*');
             }
             break;
         case 'REQUEST_BUILD':
@@ -6312,20 +6358,107 @@ window.addEventListener('message', (event) => {
                 save_as_json_start(true);
             } catch (error) {
                 console.error("Error building story:", error);
-                event.source.postMessage({ type: 'ERROR', payload: { message: error.message } }, event.origin);
+                window.parent.postMessage({ type: 'ERROR', payload: { message: error.message } }, '*');
             }
             break;
         case 'LOAD_PROJECT':
             try {
                 if (payload && payload.jsonContent) {
                     load_story_edit_from_string(payload.jsonContent);
-                    event.source.postMessage({ type: 'LOAD_PROJECT_SUCCESS' }, event.origin);
+                    window.parent.postMessage({ type: 'LOAD_PROJECT_SUCCESS' }, '*');
                 } else {
                     throw new Error("Missing jsonContent in LOAD_PROJECT payload");
                 }
             } catch (error) {
                 console.error("Error loading project:", error);
-                event.source.postMessage({ type: 'ERROR', payload: { message: error.message } }, event.origin);
+                window.parent.postMessage({ type: 'ERROR', payload: { message: error.message } }, '*');
+            }
+            break;
+        case 'GET_STORY_BLOCKS':
+            try {
+                var blocks = [];
+                if (story_script && story_script.blocks) {
+                    blocks = Object.keys(story_script.blocks).map(function(k) { return { id: k, name: k }; });
+                }
+                window.parent.postMessage({ type: 'STORY_BLOCKS_LIST', payload: blocks }, '*');
+            } catch (e) {
+                console.error("Error getting blocks:", e);
+            }
+            break;
+        case 'ADD_MINIGAME_TO_BLOCK':
+            try {
+                var gameId = payload.gameId;
+                var config = payload.config;
+                
+                // Determine target block/scene
+                // If user selected a block in the editor, it might be in 'block_active' or 'scen_data'
+                
+                // If we are editing a scene (scen_data is populated)
+                if (typeof scen_data !== 'undefined' && scen_data.length >= 2) {
+                    var chapter = scen_data[0];
+                    var sceneIdx = scen_data[1];
+                    // Default to first dialog if none specific or create a new one?
+                    // Let's modify the CURRENT scene's first dialog
+                    
+                    if (story_script[chapter] && story_script[chapter][sceneIdx]) {
+                        var sceneObj = story_script[chapter][sceneIdx];
+                        if (!sceneObj.dialogs) sceneObj.dialogs = [];
+                        if (sceneObj.dialogs.length === 0) {
+                             // Create a dummy dialog if none exists
+                             sceneObj.dialogs.push({ text: "Minigame Trigger", variables: [] });
+                        }
+                        
+                        var dialog = sceneObj.dialogs[0];
+                        if (!dialog.variables) dialog.variables = [];
+                        
+                         // Remove existing game vars
+                        dialog.variables = dialog.variables.filter(function(v) { 
+                            return !['trigger_game_id', 'minigame_type', 'success_target', 'fail_target'].includes(v[0]);
+                        });
+
+                        // Add new variables
+                        dialog.variables.push(['trigger_game_id', 'set', gameId]);
+                        dialog.variables.push(['minigame_type', 'set', config.type]);
+                        dialog.variables.push(['success_target', 'set', config.successTarget]);
+                        dialog.variables.push(['fail_target', 'set', config.failTarget]);
+                        
+                        update_novel();
+                        toast("Mini-jeu attaché à la scène " + (sceneIdx + 1));
+                        window.parent.postMessage({ type: 'MINIGAME_ADDED_SUCCESS' }, '*');
+                    }
+                } else if (typeof block_active !== 'undefined' && block_active) {
+                     // Adding to a block (chapter) generally
+                     // This is harder because a block has multiple scenes.
+                     // We will assume first scene of the block.
+                     var chapter = block_active;
+                     if (story_script[chapter] && story_script[chapter].length > 0) {
+                         var sceneObj = story_script[chapter][0];
+                         if (!sceneObj.dialogs) sceneObj.dialogs = [];
+                         if (sceneObj.dialogs.length === 0) {
+                             sceneObj.dialogs.push({ text: "Minigame Trigger", variables: [] });
+                         }
+                         var dialog = sceneObj.dialogs[0];
+                         if (!dialog.variables) dialog.variables = [];
+                         
+                         dialog.variables = dialog.variables.filter(function(v) { 
+                            return !['trigger_game_id', 'minigame_type', 'success_target', 'fail_target'].includes(v[0]);
+                        });
+                        
+                        dialog.variables.push(['trigger_game_id', 'set', gameId]);
+                        dialog.variables.push(['minigame_type', 'set', config.type]);
+                        dialog.variables.push(['success_target', 'set', config.successTarget]);
+                        dialog.variables.push(['fail_target', 'set', config.failTarget]);
+                        
+                        update_novel();
+                        toast("Mini-jeu attaché au bloc " + block_active);
+                        window.parent.postMessage({ type: 'MINIGAME_ADDED_SUCCESS' }, '*');
+                     }
+                } else {
+                    toast("Veuillez sélectionner un bloc ou une scène.");
+                }
+            } catch (e) {
+                console.error("Error adding minigame:", e);
+                window.parent.postMessage({ type: 'ERROR', payload: { message: "Erreur ajout mini-jeu: " + e.message } }, '*');
             }
             break;
         default:

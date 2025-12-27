@@ -58,6 +58,8 @@ public class User {
     @OneToMany(mappedBy = "reader")
     private List<ReadingProgress> library;
 
+    private Integer xp = 0;
+
     private LocalDateTime otpExpirationDate;
 
     @PrePersist

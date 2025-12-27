@@ -120,4 +120,12 @@ public class UserController {
         bookService.removeBookFromBag(Long.valueOf(SecurityContextHolder.getContext().getAuthentication().getName()), bookId);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/users/xp")
+    public ResponseEntity<Void> addXp(@Valid @RequestBody cipestudio.dto.user.XpRequestDTO xpRequestDTO) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = Long.valueOf(authentication.getName());
+        userService.addXp(userId, xpRequestDTO.getAmount());
+        return ResponseEntity.ok().build();
+    }
 }

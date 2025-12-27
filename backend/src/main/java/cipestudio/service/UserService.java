@@ -244,4 +244,13 @@ public class UserService{
         userRepository.save(user);
         return avatarUrl;
     }
+
+    @Transactional
+    public void addXp(Long userId, int amount) {
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found")
+        );
+        user.setXp((user.getXp() == null ? 0 : user.getXp()) + amount);
+        userRepository.save(user);
+    }
 }
