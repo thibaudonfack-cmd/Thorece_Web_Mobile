@@ -1,0 +1,32 @@
+meta {
+  name: CollectionCreate
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{host}}/collections
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{editor_token}}
+}
+
+body:json {
+  {
+    "name": "Histoires du soir",
+    "description": "Une collection pour s'endormir."
+  }
+}
+
+script:post-response {
+  test("Status code is 201", function() {
+      expect(res.getStatus()).to.equal(201);
+  });
+  test("Store collection ID", function() {
+      const body = res.getBody();
+      bru.setVar("collection_id", body.id);
+  });
+}

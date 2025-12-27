@@ -1,0 +1,36 @@
+meta {
+  name: UserCreate
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "nom": "Bruno Tester",
+    "email": "{{user_email}}",
+    "password": "{{user_password}}",
+    "role": "AUTEUR"
+  }
+}
+
+script:pre-request {
+  const randomId = Math.floor(Math.random() * 100000);
+  bru.setVar("user_email", `bruno.test.${randomId}@cipestudio.com`);
+  bru.setVar("user_password", "Password123!");
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Email matches", function() {
+      expect(res.getBody().email).to.equal(bru.getVar("user_email"));
+  });
+}

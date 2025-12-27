@@ -1,0 +1,99 @@
+@startuml Activity_CreateBook_CipeStudio
+
+|Auteur|
+start
+:Accéder au dashboard auteur;
+:Cliquer sur "Créer un livre";
+:Remplir formulaire:\n- Titre\n- Description\n- Upload couverture (image);
+
+|Frontend|
+:Valider formulaire\n(champs requis, taille image);
+if (Validation OK?) then (non)
+  :Afficher erreurs\nde validation;
+  stop
+endif
+
+:Envoyer requête POST /books\navec FormData;
+
+|Backend|
+:Recevoir requête;
+:Middleware: Vérifier JWT;
+if (JWT valide?) then (non)
+  |Frontend|
+  :Recevoir 401 Unauthorized;
+  :Rediriger vers /login;
+  stop
+endif
+
+|Backend|
+:Middleware: Vérifier rôle AUTEUR;
+if (Rôle AUTEUR?) then (non)
+  |Frontend|
+  :Recevoir 403 Forbidden;
+  :Afficher "Non autorisé";
+  stop
+endif
+
+|Backend|
+partition "BookController" {
+  :Extraire données du formulaire;
+  :Valider données (@Valid);
+  if (Données valides?) then (non)
+    |Frontend|
+    :Recevoir 400 Bad Request\navec erreurs de validation;
+    :Afficher erreurs;
+    stop
+  endif
+}
+
+partition "BookService" {
+  == Traitement de l'image ==
+  :Récupérer fichier image;
+  :Valider type MIME\n(image/jpeg, image/png);
+  if (Type valide?) then (non)
+    |Frontend|
+    :Recevoir 400 Bad Request;
+    :Afficher "Type de fichier invalide";
+    stop
+  endif
+
+  :Vérifier taille (max 5MB);
+  if (Taille OK?) then (non)
+    |Frontend|
+    :Recevoir 400 Bad Request;
+    :Afficher "Fichier trop volumineux";
+    stop
+  endif
+
+  :Redimensionner image si nécessaire\n(max 1920x1080);
+  :Générer hash SHA-512 de l'image;
+
+  == Déduplication ==
+  :Chercher hash en DB;
+  if (Hash existe?) then (oui)
+    :Réutiliser URL existante;
+  else (non)
+    :Upload image sur SeaweedFS;
+    :Sauvegarder hash + URL en DB;
+  endif
+
+  == Création du livre ==
+  :Créer entité Book:\n- title = titre saisi\n- description = description saisie\n- coverUrl = URL image\n- status = DRAFT\n- author = utilisateur connecté\n- createdAt = now()\n- updatedAt = now();
+
+  :Sauvegarder livre en DB;
+  :Créer entité Page associée:\n- book = livre créé\n- draftUrl = null\n- publishedUrl = null;
+  :Sauvegarder page en DB;
+  :Mapper Book → BookResponseDTO;
+}
+
+|Frontend|
+:Recevoir 201 Created\navec BookResponseDTO;
+:Invalider cache React Query\n(queryKey: ['authorBooks']);
+:Afficher notification\n"Livre créé avec succès";
+:Rediriger vers /author/story/{id}\nou rester sur dashboard;
+
+|Auteur|
+:Voir nouveau livre\ndans la liste;
+stop
+
+@enduml

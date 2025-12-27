@@ -1,0 +1,26 @@
+{
+  "identities": [
+    {
+      "name": "admin_user",
+      "credentials": [
+        {
+          "accessKey": "mettrevosvaleurici",
+          "secretKey": "minioadminttrevosvaleurici"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List",
+        "Tagging"
+      ]
+    },
+    {
+      "name": "anonymous",
+      "actions": [
+        "Read"
+      ]
+    }
+  ]
+}

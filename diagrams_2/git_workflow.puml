@@ -1,0 +1,231 @@
+@startuml Git_Workflow_Branching_Strategy
+
+!define LIGHTBLUE #E3F2FD
+!define LIGHTGREEN #E8F5E9
+!define LIGHTYELLOW #FFF9C4
+!define LIGHTPINK #FCE4EC
+
+' Branches principales
+|main (Production)|
+start
+:Initial commit;
+note right
+  **Branche main** :
+  • Code en production
+  • Protégée (pas de push direct)
+  • Merge uniquement via MR approuvée
+  • Tag de version (v1.0.0, v1.1.0, etc.)
+  • Déploiement manuel requis
+end note
+
+|develop (Staging)|
+fork
+  :Create develop branch;
+  note right
+    **Branche develop** :
+    • Code validé en développement
+    • Intégration continue
+    • Déploiement automatique sur serveur dev
+    • Base pour les features
+  end note
+fork end
+
+' Feature branches
+|feature/auth-otp|
+fork
+  :Create feature branch\nfrom develop;
+  note right
+    **Convention de nommage** :
+    • feature/nom-de-la-fonctionnalite
+    • bugfix/description-du-bug
+    • hotfix/probleme-urgent
+
+    **Exemples** :
+    • feature/auth-otp
+    • feature/collection-management
+    • bugfix/page-loading-error
+    • hotfix/security-vulnerability
+  end note
+
+  :Development work;
+  :Local commits\n(conventional commits);
+  note right
+    **Conventional Commits** :
+    • feat: Nouvelle fonctionnalité
+    • fix: Correction de bug
+    • refactor: Refactoring sans changement fonctionnel
+    • docs: Documentation
+    • test: Ajout de tests
+    • chore: Tâches de maintenance
+
+    **Exemples** :
+    feat(auth): add OTP verification via email
+    fix(book): resolve page creation race condition
+    refactor(frontend): migrate to feature-based architecture
+  end note
+
+  :Push to remote;
+  :Create Merge Request\n(MR) to develop;
+fork end
+
+|develop (Staging)|
+:Code review\n(1+ approver);
+note right
+  **Code Review** :
+  • Vérification du code
+  • Tests passent
+  • Respect des conventions
+  • Pas de régression
+  • Documentation à jour
+end note
+
+if (Review approved?) then (yes)
+  :Merge to develop;
+  :CI/CD Pipeline\n(test → package → deploy dev);
+  :Auto-deploy to\ndev environment;
+else (no)
+  |feature/auth-otp|
+  :Fix issues;
+  :Push updates;
+  |develop (Staging)|
+  :Re-review;
+endif
+
+:Testing on dev\nenvironment;
+
+if (Ready for production?) then (yes)
+  |main (Production)|
+  :Create MR\ndevelop → main;
+  :Final review\n(Lead/Senior);
+  :Merge to main;
+  :Tag version\n(v1.2.0);
+  note right
+    **Versioning Sémantique** :
+    • MAJOR.MINOR.PATCH
+    • v1.0.0 : Release initiale
+    • v1.1.0 : Nouvelles fonctionnalités
+    • v1.1.1 : Corrections de bugs
+  end note
+
+  :CI/CD Pipeline\n(full pipeline);
+  :Manual deployment\nto production;
+  note right
+    **Déploiement production** :
+    • Approval manuelle requise
+    • Blue-Green deployment
+    • Backup base de données
+    • Rollback plan ready
+    • Monitoring actif
+  end note
+else (no)
+  |develop (Staging)|
+  :Continue development;
+endif
+
+' Hotfix flow
+|hotfix/critical-bug|
+fork
+  note right
+    **Hotfix (cas urgent)** :
+    • Branche depuis main
+    • Fix critique en production
+    • Merge vers main ET develop
+  end note
+
+  :Critical bug\nin production!;
+  :Create hotfix\nfrom main;
+  :Quick fix;
+  :Emergency review;
+  :Merge to main;
+  :Deploy immediately;
+  :Merge to develop\n(sync);
+fork end
+
+stop
+
+legend right
+  **GitLab Flow adapté pour Cipe Studio** :
+
+  **Branches permanentes** :
+  • **main** : Production (protégée)
+  • **develop** : Développement/Staging (protégée)
+
+  **Branches temporaires** :
+  • **feature/*** : Nouvelles fonctionnalités
+  • **bugfix/*** : Corrections de bugs
+  • **hotfix/*** : Corrections urgentes en production
+
+  **Workflow standard** :
+  1. Créer feature branch depuis develop
+  2. Développer avec commits conventionnels
+  3. Push et créer MR vers develop
+  4. Code review et tests CI/CD
+  5. Merge vers develop → auto-deploy dev
+  6. Quand stable : MR develop → main
+  7. Approval manuelle → deploy production
+
+  **Protections de branches** :
+  • Pas de push direct sur main/develop
+  • MR requise avec 1+ approval
+  • CI/CD doit passer (tests + build)
+  • No force push allowed
+  • Branch deletion après merge
+
+  **Outils GitLab** :
+  • Merge Requests (MR)
+  • Code Review & Approvals
+  • CI/CD Pipelines
+  • Environments (dev, prod)
+  • Protected Branches
+  • Commit signing (optionnel)
+endlegend
+
+note bottom
+  **Exemple de workflow complet** :
+
+  1. **Feature development** :
+     ```
+     git checkout develop
+     git pull origin develop
+     git checkout -b feature/editor-catalog
+     # ... développement ...
+     git add .
+     git commit -m "feat(editor): add book catalog with filters"
+     git push origin feature/editor-catalog
+     # → Créer MR sur GitLab UI
+     ```
+
+  2. **Après review** :
+     ```
+     # Merge via GitLab UI (Squash commits optionnel)
+     # → CI/CD déclenché automatiquement
+     # → Auto-deploy sur dev
+     ```
+
+  3. **Release vers production** :
+     ```
+     # Créer MR develop → main sur GitLab UI
+     # Approval manuelle
+     # Merge → CI/CD déclenché
+     # Deployment manuel requis
+     git tag v1.2.0
+     git push origin v1.2.0
+     ```
+
+  4. **Hotfix urgent** :
+     ```
+     git checkout main
+     git pull origin main
+     git checkout -b hotfix/auth-bypass
+     # ... fix ...
+     git commit -m "fix(auth): patch authentication bypass vulnerability"
+     git push origin hotfix/auth-bypass
+     # MR vers main (fast review)
+     # Après merge vers main :
+     git checkout develop
+     git merge main
+     git push origin develop
+     ```
+end note
+
+@enduml

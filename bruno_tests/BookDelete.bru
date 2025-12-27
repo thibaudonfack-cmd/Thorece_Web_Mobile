@@ -1,0 +1,21 @@
+meta {
+  name: BookDelete
+  type: http
+  seq: 30
+}
+
+delete {
+  url: {{host}}/books/{{book_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+script:post-response {
+  test("Status code is 204", function() {
+      expect(res.getStatus()).to.equal(204);
+  });
+}

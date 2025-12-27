@@ -1,0 +1,113 @@
+@startuml Monolith_vs_Microservices
+
+skinparam componentStyle rectangle
+
+!define LIGHTBLUE #E3F2FD
+!define LIGHTGREEN #E8F5E9
+!define LIGHTYELLOW #FFF9C4
+
+package "Architecture Monolithique (Cipe Studio - Actuel)" as Monolith {
+  rectangle "Application Spring Boot" LIGHTBLUE {
+    component [Controllers] as MC
+    component [Services] as MS
+    component [Repositories] as MR
+    component [Security] as MSec
+  }
+
+  database "MySQL" as MDB
+  cloud "SeaweedFS" as MS3
+
+  MC --> MS
+  MS --> MR
+  MR --> MDB
+  MS --> MS3
+  MSec --> MC
+}
+
+package "Architecture Microservices (Évolution future possible)" as Micro {
+  rectangle "Service Authentification" LIGHTGREEN {
+    component [Auth API] as AuthAPI
+    component [Auth Service] as AuthSvc
+    database "Auth DB" as AuthDB
+  }
+
+  rectangle "Service Livres" LIGHTGREEN {
+    component [Books API] as BookAPI
+    component [Books Service] as BookSvc
+    database "Books DB" as BookDB
+  }
+
+  rectangle "Service Collections" LIGHTGREEN {
+    component [Collections API] as CollAPI
+    component [Collections Service] as CollSvc
+    database "Collections DB" as CollDB
+  }
+
+  rectangle "Service Stockage" LIGHTGREEN {
+    component [Storage API] as StorAPI
+    component [Storage Service] as StorSvc
+  }
+
+  component [API Gateway] as Gateway LIGHTYELLOW
+  component [Service Discovery\\n(Eureka/Consul)] as Discovery LIGHTYELLOW
+
+  cloud "SeaweedFS\\n(Partagé)" as MicroS3
+
+  Gateway --> AuthAPI
+  Gateway --> BookAPI
+  Gateway --> CollAPI
+  Gateway --> StorAPI
+
+  AuthAPI --> AuthSvc --> AuthDB
+  BookAPI --> BookSvc --> BookDB
+  CollAPI --> CollSvc --> CollDB
+  StorAPI --> StorSvc --> MicroS3
+
+  AuthAPI --> Discovery
+  BookAPI --> Discovery
+  CollAPI --> Discovery
+  StorAPI --> Discovery
+}
+
+note right of Monolith
+  **Avantages** :
+  • Simplicité de développement
+  • Facilité de déploiement
+  • Performance (pas de surcharge réseau)
+  • Transactions ACID natives
+  • Debugging plus simple
+
+  **Inconvénients** :
+  • Couplage fort entre modules
+  • Scaling horizontal limité
+  • Déploiement "tout ou rien"
+  • Stack technologique unique
+end note
+
+note left of Micro
+  **Avantages** :
+  • Indépendance des services
+  • Scaling granulaire
+  • Déploiements indépendants
+  • Choix technologiques flexibles
+  • Résilience (isolation des pannes)
+
+  **Inconvénients** :
+  • Complexité opérationnelle
+  • Latence réseau
+  • Gestion des transactions distribuées
+  • Debugging distribué difficile
+  • Overhead infrastructure
+end note
+
+note bottom of Monolith
+  **Choix actuel pour Cipe Studio** :
+  L'architecture monolithique est adaptée car :
+  1. Équipe réduite (1-3 développeurs)
+  2. Charge modérée (< 10 000 utilisateurs estimés)
+  3. Fonctionnalités fortement couplées
+  4. Besoin de transactions cohérentes (création livre + page + upload S3)
+  5. Simplicité de maintenance prioritaire
+end note
+
+@enduml

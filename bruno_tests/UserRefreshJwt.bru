@@ -1,0 +1,26 @@
+meta {
+  name: UserRefreshJwt
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/refresh
+  body: none
+  auth: none
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("New Access Token received", function() {
+      const body = res.getBody();
+      if (body && body.token) {
+          bru.setVar("author_token", body.token);
+      }
+      expect(body.token).to.be.a('string');
+      expect(body.token).to.not.be.empty;
+  });
+}

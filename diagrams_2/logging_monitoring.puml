@@ -1,0 +1,237 @@
+@startuml Logging_and_Monitoring_Architecture
+
+!define LIGHTBLUE #E3F2FD
+!define LIGHTGREEN #E8F5E9
+!define LIGHTYELLOW #FFF9C4
+!define LIGHTPINK #FCE4EC
+
+skinparam componentStyle rectangle
+
+' Application Layer
+package "Application Layer" {
+  component "Backend\nSpring Boot" as Backend {
+    [UserController]
+    [BookController]
+    [PageController]
+    component [SLF4J API] as SLF4J
+    component [Logback\n(Implementation)] as Logback
+  }
+
+  component "Frontend\nReact" as Frontend {
+    [Components]
+    component [Console Logging] as ConsoleLog
+  }
+
+  [UserController] --> SLF4J
+  [BookController] --> SLF4J
+  [PageController] --> SLF4J
+  SLF4J --> Logback
+
+  [Components] --> ConsoleLog
+}
+
+' Logging Storage
+package "Logging Storage (Recommandé)" {
+  component [Logstash\n(Log Aggregator)] as Logstash LIGHTYELLOW
+  database [Elasticsearch\n(Log Storage)] as Elastic LIGHTGREEN
+  component [Kibana\n(Visualization)] as Kibana LIGHTBLUE
+
+  note right of Logstash
+    **Logstash** :
+    • Collecte logs de multiples sources
+    • Parse et structure les logs
+    • Enrichit avec métadonnées
+    • Filtre et transforme
+  end note
+
+  note right of Elastic
+    **Elasticsearch** :
+    • Stockage distribué
+    • Index full-text
+    • Recherche rapide
+    • Rétention configurable (30-90 jours)
+  end note
+
+  note right of Kibana
+    **Kibana** :
+    • Dashboard de visualisation
+    • Recherche de logs
+    • Graphiques et métriques
+    • Alertes configurables
+  end note
+}
+
+' Monitoring
+package "Monitoring (Recommandé)" {
+  component [Prometheus\n(Metrics Collector)] as Prometheus LIGHTPINK
+  database [Time Series DB] as TSDB
+  component [Grafana\n(Dashboard)] as Grafana LIGHTGREEN
+
+  component [Alertmanager] as Alert
+
+  note right of Prometheus
+    **Prometheus** :
+    • Scraping metrics HTTP
+    • Métriques applicatives
+    • Métriques système (CPU, RAM, Disk)
+    • Query language (PromQL)
+  end note
+
+  note right of Grafana
+    **Grafana** :
+    • Dashboards temps réel
+    • Graphiques de performance
+    • Multi-source (Prometheus, Elastic)
+    • Alertes visuelles
+  end note
+}
+
+' Current Implementation
+package "Implémentation Actuelle (Cipe Studio)" {
+  component [File Logging\nlogs/application.log] as FileLog LIGHTYELLOW
+  component [Console Output] as Console LIGHTBLUE
+
+  note bottom of FileLog
+    **Configuration actuelle (logback-spring.xml)** :
+
+    • Console appender (dev)
+    • File appender (prod)
+    • Rolling policy (10 MB, 30 jours)
+    • Pattern : %d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
+
+    **Niveaux de log** :
+    • ERROR : Erreurs critiques
+    • WARN : Avertissements
+    • INFO : Événements importants (authentification, création livre)
+    • DEBUG : Détails techniques (dev uniquement)
+    • TRACE : Très détaillé (rarement utilisé)
+  end note
+}
+
+' Data Flow
+Logback --> Console : "Development"
+Logback --> FileLog : "Production"
+FileLog -[dashed]-> Logstash : "Future : Filebeat\nou syslog"
+
+Backend --> Prometheus : "/actuator/prometheus"
+Prometheus --> TSDB
+TSDB --> Grafana
+Prometheus --> Alert : "Si seuil dépassé"
+
+Frontend -[dashed]-> Logstash : "Future : Browser logs\n(errors, analytics)"
+
+Logstash --> Elastic
+Elastic --> Kibana
+
+' Exemples de logs
+note left of Backend
+  **Exemples de logs structurés** :
+
+  ```java
+  // Authentification
+  log.info("User login attempt: email={}", email);
+  log.info("OTP sent to email: {}", email);
+  log.warn("Failed login attempt for email: {}", email);
+
+  // Création de livre
+  log.info("Book created: id={}, title={}, author={}",
+           book.getId(), book.getTitle(), author.getEmail());
+
+  // Upload S3
+  log.info("File uploaded to S3: url={}, size={}",
+           s3Url, fileSize);
+  log.error("S3 upload failed: {}", e.getMessage(), e);
+
+  // Performance
+  log.debug("Query executed in {}ms: {}",
+            duration, queryString);
+  ```
+end note
+
+' Métriques à monitorer
+note right of Prometheus
+  **Métriques clés à surveiller** :
+
+  **Backend (Spring Boot Actuator)** :
+  • http_server_requests_seconds (latence API)
+  • jvm_memory_used_bytes (mémoire)
+  • jvm_gc_pause_seconds (garbage collection)
+  • hikaricp_connections_active (DB connections)
+  • custom: books_created_total
+  • custom: users_logged_in_total
+  • custom: s3_uploads_total
+
+  **Système** :
+  • CPU usage (%)
+  • RAM usage (%)
+  • Disk I/O
+  • Network traffic
+
+  **Base de données** :
+  • Slow queries (> 1s)
+  • Connection pool saturation
+  • Deadlocks
+end note
+
+legend right
+  **Architecture de logging recommandée (ELK Stack)** :
+
+  **E**lasticsearch : Stockage et indexation des logs
+  **L**ogstash : Collecte et parsing des logs
+  **K**ibana : Visualisation et recherche
+
+  **Workflow** :
+  1. Application écrit logs (SLF4J/Logback)
+  2. Logs envoyés à Logstash (via Filebeat ou syslog)
+  3. Logstash parse et enrichit les logs
+  4. Logs stockés dans Elasticsearch
+  5. Kibana permet la recherche et visualisation
+
+  **+ Prometheus + Grafana** :
+  • Métriques temps réel (CPU, RAM, requêtes/s)
+  • Alertes automatiques (email, Slack)
+  • Dashboards de performance
+
+  **Alertes importantes** :
+  • Taux d'erreur > 5%
+  • Latence API > 2 secondes
+  • CPU > 80%
+  • RAM > 90%
+  • Disk > 85%
+  • DB connections > 90% du pool
+endlegend
+
+note bottom
+  **Implémentation progressive** :
+
+  **Phase 1 (Actuel)** :
+  • Logging dans fichiers (logback)
+  • Console output pour dev
+  • Pas de monitoring centralisé
+
+  **Phase 2 (Court terme)** :
+  • Activer Spring Boot Actuator
+  • Exposer /actuator/prometheus
+  • Setup Prometheus local
+  • Dashboards Grafana basiques
+
+  **Phase 3 (Moyen terme)** :
+  • Installation ELK Stack
+  • Filebeat pour shipping logs
+  • Dashboards Kibana personnalisés
+  • Alertes configurées
+
+  **Phase 4 (Long terme)** :
+  • Distributed tracing (Zipkin/Jaeger)
+  • Application Performance Monitoring (APM)
+  • Logging frontend (Sentry)
+  • Corrélation logs + traces + métriques
+
+  **Coût estimé** :
+  • Phase 1 : Gratuit (inclus)
+  • Phase 2 : Gratuit (self-hosted Prometheus/Grafana)
+  • Phase 3 : ~50-100€/mois (ELK Stack hébergé ou VPS)
+  • Phase 4 : ~200-500€/mois (solutions SaaS comme Datadog)
+end note
+
+@enduml

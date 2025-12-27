@@ -1,0 +1,22 @@
+meta {
+  name: BookReport
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{host}}/reports
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{child_token}}
+}
+
+body:json {
+  {
+    "bookId": {{book_id}},
+    "reason": "CONTENU_INAPPROPRIE"
+  }
+}

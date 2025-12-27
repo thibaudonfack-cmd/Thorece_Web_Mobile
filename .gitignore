@@ -1,0 +1,115 @@
+# === Node / React ===
+node_modules/
+build/
+dist/
+.env
+
+# === Java / Spring Boot ===
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# === Maven ===
+.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+dependency-reduced-pom.xml
+release.properties
+log/
+
+# === IntelliJ IDEA ===
+.idea/
+*.iml
+*.iws
+out/
+
+# === Eclipse ===
+.project
+.classpath
+.settings/
+bin/
+
+# === VS Code ===
+.vscode/
+
+# === Logs ===
+*.log
+logs/
+
+# === OS files ===
+.DS_Store
+Thumbs.db
+
+# === Secrets and credentials ===
+*.key
+*.pem
+*.p12
+*.jks
+*.crt
+*.csr
+*.der
+*.pfx
+*.env
+.env
+secrets.*
+credentials.*
+s3_config.json
+
+# === Build and temp files ===
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# === Test reports and coverage ===
+surefire-reports/
+jacoco.exec
+coverage/
+
+# === Docker ===
+docker-compose.override.yml
+*.pid
+*.seed
+*.pid.lock
+
+# === H2 / SQLite DB ===
+*.h2.db
+*.mv.db
+
+# === Misc ===
+*.orig
+*.rej
+
+# === Generated files / caches ===
+*.cache
+*.eslintcache
+.cache/
+.nyc_output/
+
+# === Logs and dumps ===
+*.dump
+*.trace
+
+# === OS-specific ===
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# === Temporary IDE / Editor files ===
+*.idea/
+*.vscode/
+*.history/
+*.code-workspace
+
+# === Yarn ===
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/versions
+.yarnrc.yml
+
+# === Coverage reports ===
+GEMINI.md
+.claude

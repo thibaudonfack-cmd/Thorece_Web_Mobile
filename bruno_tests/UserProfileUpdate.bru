@@ -1,0 +1,32 @@
+meta {
+  name: UserProfileUpdate
+  type: http
+  seq: 14
+}
+
+put {
+  url: {{host}}/users/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:json {
+  {
+    "nom": "Bruno Updated",
+    "email": "{{user_email}}"
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Name is updated", function() {
+      expect(res.getBody().nom).to.equal("Bruno Updated");
+  });
+}

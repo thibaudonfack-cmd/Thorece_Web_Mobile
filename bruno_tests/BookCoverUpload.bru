@@ -1,0 +1,29 @@
+meta {
+  name: BookCoverUpload
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{host}}/books/{{book_id}}/cover
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:multipart-form {
+  file: @file(assets/i_p-c_ffb81c,s_630,q_90.jpg)
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("URL returned", function() {
+      expect(res.getBody().url).to.contain("http://localhost:9000");
+  });
+}

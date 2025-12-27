@@ -1,0 +1,32 @@
+meta {
+  name: UserAvatarUpload
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{host}}/users/me/avatar
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:multipart-form {
+  file: @file(assets/i_p-c_ffb81c,s_630,q_90.jpg)
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response contains avatar URL", function() {
+      const body = res.getBody();
+      expect(body).to.have.property('avatarUrl');
+      expect(body.avatarUrl).to.contain("http://localhost:9000");
+      bru.setVar("uploaded_avatar_url", body.avatarUrl);
+  });
+}

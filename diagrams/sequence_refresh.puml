@@ -1,0 +1,371 @@
+@startuml Sequence_Refresh_Token_CipeStudio
+
+participant "Frontend\n(Axios Interceptor)" as Frontend
+participant "RefreshTokenController\n(Backend)" as Controller
+participant "RefreshTokenService" as Service
+participant "JwtUtils" as JWT
+participant "RefreshTokenRepository" as TokenRepo
+participant "UserRepository" as UserRepo
+database "MySQL" as DB
+
+== Scénario : Access token expiré ==
+
+note over Frontend
+  **Déclencheur** :
+  Une requête API retourne 401 Unauthorized
+  car l'access token est expiré
+end note
+
+Frontend -> Frontend: Intercepter erreur 401
+
+note right of Frontend
+  **Axios Interceptor** :
+  ```javascript
+  axios.interceptors.response.use(
+    response => response,
+    async error => {
+      if (error.response?.status === 401
+          && !error.config._retry) {
+        error.config._retry = true;
+        // Tenter le refresh
+        await refreshToken();
+        return axios(error.config);
+      }
+      return Promise.reject(error);
+    }
+  );
+  ```
+end note
+
+== Processus de refresh du token ==
+
+Frontend -> Controller: POST /refresh\n(avec cookies)
+activate Frontend
+activate Controller
+
+note right of Frontend
+  **Cookies envoyés automatiquement** :
+  • refresh_token (httpOnly, secure)
+  • access_token (httpOnly, expiré)
+
+  **Headers** :
+  • Content-Type: application/json
+  • Credentials: include
+
+  **Body** : {} (vide)
+end note
+
+Controller -> Controller: Extraire refresh token\ndepuis cookie HTTP
+
+alt Refresh token absent
+  Controller --> Frontend: 400 Bad Request\n{"message": "Refresh token missing"}
+  Frontend -> Frontend: Supprimer tokens locaux
+  Frontend -> Frontend: Rediriger vers /login
+  deactivate Frontend
+  deactivate Controller
+else Refresh token présent
+
+  Controller -> Service: refreshAccessToken(refreshToken)
+  activate Service
+
+  == Validation du refresh token ==
+
+  Service -> JWT: validateToken(refreshToken)
+  activate JWT
+
+  JWT -> JWT: Vérifier signature JWT\navec clé secrète
+
+  note right of JWT
+    **Validation signature** :
+    ```java
+    Jwts.parserBuilder()
+        .setSigningKey(getSigningKey())
+        .build()
+        .parseClaimsJws(token);
+    ```
+
+    Si signature invalide → Exception
+  end note
+
+  alt Signature invalide
+    JWT --> Service: throw SignatureException
+    deactivate JWT
+    Service --> Controller: throw InvalidTokenException
+    deactivate Service
+    Controller --> Frontend: 401 Unauthorized\n{"message": "Invalid token"}
+    deactivate Controller
+    Frontend -> Frontend: Supprimer tokens
+    Frontend -> Frontend: Rediriger vers /login
+    deactivate Frontend
+  else Signature valide
+
+    JWT -> JWT: Vérifier date d'expiration
+
+    alt Token expiré
+      JWT --> Service: throw ExpiredJwtException
+      deactivate JWT
+      Service --> Controller: throw TokenExpiredException
+      deactivate Service
+      Controller --> Frontend: 401 Unauthorized\n{"message": "Refresh token expired"}
+      deactivate Controller
+      Frontend -> Frontend: Supprimer tokens
+      Frontend -> Frontend: Rediriger vers /login
+      deactivate Frontend
+    else Token non expiré
+
+      JWT -> JWT: Extraire claims\n(userId, email, exp, iat)
+
+      note right of JWT
+        **Claims extraits** :
+        • sub : userId (Long)
+        • exp : expiration timestamp
+        • iat : issued at timestamp
+        • jti : token ID (optionnel)
+      end note
+
+      JWT --> Service: userId
+      deactivate JWT
+
+      == Vérification en base de données ==
+
+      Service -> TokenRepo: findByToken(refreshToken)
+      activate TokenRepo
+      TokenRepo -> DB: SELECT * FROM refresh_tokens\nWHERE token = ?
+      activate DB
+      DB --> TokenRepo: RefreshToken entity
+      deactivate DB
+      TokenRepo --> Service: Optional<RefreshToken>
+      deactivate TokenRepo
+
+      alt Token non trouvé en DB
+        Service --> Controller: throw TokenNotFoundException
+        deactivate Service
+        Controller --> Frontend: 401 Unauthorized\n{"message": "Token not found"}
+        deactivate Controller
+        Frontend -> Frontend: Rediriger vers /login
+        deactivate Frontend
+      else Token trouvé
+
+        Service -> Service: Vérifier token.revoked
+
+        alt Token révoqué
+          Service --> Controller: throw TokenRevokedException
+          deactivate Service
+
+          note right of Service
+            **Raisons de révocation** :
+            • Déconnexion manuelle
+            • Changement de mot de passe
+            • Blocage par admin
+            • Activité suspecte détectée
+          end note
+
+          Controller --> Frontend: 401 Unauthorized\n{"message": "Token revoked"}
+          deactivate Controller
+          Frontend -> Frontend: Afficher message\n"Session révoquée"
+          Frontend -> Frontend: Rediriger vers /login
+          deactivate Frontend
+        else Token valide
+
+          Service -> UserRepo: findById(userId)
+          activate UserRepo
+          UserRepo -> DB: SELECT * FROM users\nWHERE id = ?
+          activate DB
+          DB --> UserRepo: User entity
+          deactivate DB
+          UserRepo --> Service: Optional<User>
+          deactivate UserRepo
+
+          alt Utilisateur non trouvé
+            Service --> Controller: throw UserNotFoundException
+            deactivate Service
+            Controller --> Frontend: 401 Unauthorized
+            deactivate Controller
+            Frontend -> Frontend: Rediriger vers /login
+            deactivate Frontend
+          else Utilisateur trouvé
+
+            Service -> Service: Vérifier user.isBlocked
+
+            alt Utilisateur bloqué
+              Service --> Controller: throw UserBlockedException
+              deactivate Service
+              Controller --> Frontend: 403 Forbidden\n{"message": "Account blocked"}
+              deactivate Controller
+              Frontend -> Frontend: Afficher message\n"Compte bloqué"
+              Frontend -> Frontend: Rediriger vers /login
+              deactivate Frontend
+            else Utilisateur actif
+
+              == Génération du nouveau access token ==
+
+              Service -> JWT: generateAccessToken(user)
+              activate JWT
+
+              JWT -> JWT: Créer claims JWT
+
+              note right of JWT
+                **Claims du nouvel access token** :
+                {
+                  "sub": "123",
+                  "email": "john@example.com",
+                  "role": "AUTEUR",
+                  "iat": 1234567890,
+                  "exp": 1234568790  // +15 minutes
+                }
+              end note
+
+              JWT -> JWT: Signer avec clé secrète\n(HS256)
+
+              note right of JWT
+                **Signature HMAC-SHA256** :
+                ```java
+                return Jwts.builder()
+                    .setClaims(claims)
+                    .setSubject(userId)
+                    .setIssuedAt(new Date())
+                    .setExpiration(expiryDate)
+                    .signWith(key, SignatureAlgorithm.HS256)
+                    .compact();
+                ```
+              end note
+
+              JWT --> Service: Nouveau access token (JWT)
+              deactivate JWT
+
+              Service --> Controller: Nouveau access token
+              deactivate Service
+
+              == Configuration du cookie ==
+
+              Controller -> Controller: Créer cookie HTTP\navec nouveau access token
+
+              note right of Controller
+                **Configuration cookie** :
+                ```java
+                Cookie cookie = new Cookie("access_token", newToken);
+                cookie.setHttpOnly(true);
+                cookie.setSecure(true);  // HTTPS uniquement
+                cookie.setPath("/");
+                cookie.setMaxAge(15 * 60);  // 15 minutes
+                cookie.setSameSite("Strict");
+                ```
+              end note
+
+              Controller --> Frontend: 200 OK\n+ Set-Cookie: access_token=...
+              deactivate Controller
+
+              note right of Controller
+                **Response** :
+                Status: 200 OK
+                Headers:
+                  Set-Cookie: access_token={JWT};
+                              HttpOnly; Secure; SameSite=Strict;
+                              Max-Age=900; Path=/
+                Body:
+                {
+                  "message": "Token refreshed successfully"
+                }
+              end note
+
+              Frontend -> Frontend: Cookie stocké\nautomatiquement par le navigateur
+
+              note right of Frontend
+                Le navigateur stocke automatiquement
+                le nouveau cookie httpOnly.
+
+                Le frontend ne manipule jamais
+                directement le token.
+              end note
+
+              Frontend -> Frontend: Rejouer la requête\ninitiale avec nouveau token
+
+              note right of Frontend
+                **Retry automatique** :
+                La requête qui avait échoué avec 401
+                est automatiquement rejouée avec le
+                nouveau access token valide.
+
+                Exemple :
+                GET /books → 401 (token expiré)
+                POST /refresh → 200 (nouveau token)
+                GET /books → 200 ✓ (avec nouveau token)
+              end note
+
+              Frontend --> Frontend: Afficher données\nà l'utilisateur
+
+              deactivate Frontend
+
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+== Mécanisme de refresh préventif (optionnel) ==
+
+note over Frontend
+  **Refresh proactif** (recommandé) :
+
+  Plutôt que d'attendre l'expiration,
+  le frontend peut vérifier périodiquement
+  le temps restant et refresh 1-2 minutes
+  avant l'expiration.
+
+  ```javascript
+  useEffect(() => {
+    const checkTokenExpiry = () => {
+      const token = parseJwt(getCookie('access_token'));
+      const expiresIn = token.exp * 1000 - Date.now();
+
+      // Refresh si expire dans moins de 1 minute
+      if (expiresIn < 60000 && expiresIn > 0) {
+        fetch('/refresh', { credentials: 'include' });
+      }
+    };
+
+    // Vérifier toutes les 30 secondes
+    const interval = setInterval(checkTokenExpiry, 30000);
+    return () => clearInterval(interval);
+  }, []);
+  ```
+
+  **Avantage** : UX transparente, pas d'interruption
+end note
+
+== Améliorations de sécurité recommandées ==
+
+note over Frontend, DB
+  **1. Rotation des refresh tokens** :
+  À chaque refresh, générer aussi un nouveau refresh token
+  et révoquer l'ancien. Empêche la réutilisation de tokens volés.
+
+  **2. Rate limiting** :
+  Limiter à 10 refresh/heure par utilisateur.
+  Alerte si dépassement (possible compte compromis).
+
+  **3. Logging et audit** :
+  Logger chaque refresh avec :
+  • userId, IP, User-Agent, timestamp
+  • Permet de détecter activités suspectes
+
+  **4. Token binding** :
+  Lier le refresh token à l'IP ou au device fingerprint.
+  Rejeter si utilisé depuis une autre IP.
+
+  **5. Détection d'anomalies** :
+  Si refresh depuis 2+ IPs en même temps → Alerte
+  Si géolocalisation incohérente → Alerte
+
+  **6. Révocation globale** :
+  Endpoint POST /auth/logout-all pour révoquer
+  tous les refresh tokens d'un utilisateur.
+
+  **7. Nettoyage automatique** :
+  Cron job quotidien pour supprimer les refresh tokens
+  expirés depuis > 30 jours de la base de données.
+end note
+
+@enduml

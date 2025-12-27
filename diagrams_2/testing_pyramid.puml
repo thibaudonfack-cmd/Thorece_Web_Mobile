@@ -1,0 +1,187 @@
+@startuml Testing_Pyramid
+
+skinparam shadowing false
+
+!define LIGHTBLUE #E3F2FD
+!define LIGHTGREEN #E8F5E9
+!define LIGHTYELLOW #FFF9C4
+
+' Pyramide inversée (anti-pattern)
+package "Anti-Pattern : Pyramide Inversée" {
+  rectangle "Tests E2E\n(Nombreux)\n❌ Lents, fragiles, coûteux" as E2E_bad LIGHTYELLOW {
+  }
+  rectangle "Tests d'Intégration\n(Moyens)" as Integration_bad LIGHTGREEN {
+  }
+  rectangle "Tests Unitaires\n(Peu)\n❌ Mauvaise couverture" as Unit_bad LIGHTBLUE {
+  }
+
+  E2E_bad -[hidden]down-> Integration_bad
+  Integration_bad -[hidden]down-> Unit_bad
+
+  note right of E2E_bad
+    **Problèmes** :
+    • Temps d'exécution > 30 min
+    • Maintenance coûteuse
+    • Feedback lent
+    • Debugging difficile
+  end note
+}
+
+' Pyramide correcte
+package "Pattern Recommandé : Pyramide de Tests" {
+
+  rectangle "Tests E2E (Manuels/Critiques)\n5-10% des tests\n⏱️ Quelques scénarios clés" as E2E LIGHTYELLOW {
+    [Parcours utilisateur complet]
+    [Scénarios critiques métier]
+  }
+
+  rectangle "Tests d'Intégration (API)\n20-30% des tests\n⏱️ Rapides avec DB en mémoire" as Integration LIGHTGREEN {
+    [Tests API avec Spring Boot Test]
+    [Tests Bruno CLI (CI/CD)]
+    [Tests avec base H2/Testcontainers]
+  }
+
+  rectangle "Tests Unitaires\n60-70% des tests\n⏱️ Très rapides (< 1s)" as Unit LIGHTBLUE {
+    [Tests Services (Business Logic)]
+    [Tests Repositories (Requêtes)]
+    [Tests Utilities (Helpers)]
+    [Tests Frontend (Components)]
+  }
+
+  E2E -[hidden]down-> Integration
+  Integration -[hidden]down-> Unit
+
+  note right of E2E
+    **Outils** :
+    • Selenium/Playwright (optionnel)
+    • Tests manuels critiques
+
+    **Exemples** :
+    • Inscription → Connexion → OTP → Création livre
+    • Éditeur ajoute livre à collection → Enfant le voit
+  end note
+
+  note right of Integration
+    **Outils Backend** :
+    • Spring Boot Test (@SpringBootTest)
+    • Bruno CLI (collection.bru)
+    • Testcontainers (MySQL Docker)
+
+    **Outils Frontend** :
+    • React Testing Library
+    • MSW (Mock Service Worker)
+
+    **Exemples** :
+    • POST /auth/login → OTP généré en DB
+    • PUT /page/{id}/content → S3 upload vérifié
+  end note
+
+  note right of Unit
+    **Outils Backend** :
+    • JUnit 5 + Mockito
+    • AssertJ
+
+    **Outils Frontend** :
+    • Vitest
+    • Jest (alternative)
+
+    **Exemples** :
+    • UserService.generateOTP() retourne 6 chiffres
+    • BookService.updateStatus() lance exception si non-auteur
+    • Helper sanitizeInput() échappe HTML
+  end note
+}
+
+' Exemple concret pour Cipe Studio
+package "Stratégie de Tests pour Cipe Studio" {
+
+  rectangle "Backend (Spring Boot)" as BackendTests {
+    component "Tests Unitaires (JUnit 5)" as UnitBack {
+      [UserServiceTest.java]
+      [BookServiceTest.java]
+      [PageServiceTest.java]
+      [JwtUtilsTest.java]
+    }
+
+    component "Tests d'Intégration (Bruno CLI)" as IntBack {
+      [auth_flow.bru]
+      [book_crud.bru]
+      [collection_management.bru]
+    }
+
+    component "Tests Critiques (Manuels)" as E2EBack {
+      [Publication de livre complet]
+      [Workflow auteur → éditeur → enfant]
+    }
+  }
+
+  rectangle "Frontend (React)" as FrontendTests {
+    component "Tests Unitaires (Vitest)" as UnitFront {
+      [LoginForm.test.jsx]
+      [BookCard.test.jsx]
+      [useAuth.test.js]
+    }
+
+    component "Tests d'Intégration (RTL + MSW)" as IntFront {
+      [Manager integration test]
+      [Library flow test]
+    }
+
+    component "Tests Critiques (Manuels)" as E2EFront {
+      [Éditeur visuel TuesdayJS]
+      [Lecture interactive enfant]
+    }
+  }
+
+  UnitBack -[hidden]right-> IntBack
+  IntBack -[hidden]right-> E2EBack
+  UnitFront -[hidden]right-> IntFront
+  IntFront -[hidden]right-> E2EFront
+}
+
+note bottom of BackendTests
+  **Coverage actuel Backend** :
+  • Tests unitaires : ~40% (à améliorer)
+  • Tests d'intégration : Bruno CLI (auth, books, collections)
+  • Tests E2E : Manuels
+
+  **Objectif** : 70-80% de couverture unitaire
+end note
+
+note bottom of FrontendTests
+  **Coverage actuel Frontend** :
+  • Tests unitaires : 0% (à implémenter)
+  • Tests d'intégration : 0%
+  • Tests E2E : Manuels uniquement
+
+  **Recommandation** :
+  1. Commencer par les hooks critiques (useAuth, useBooks)
+  2. Tester les composants de formulaires
+  3. Ajouter tests d'intégration avec MSW
+end note
+
+legend right
+  **Principes de la pyramide de tests** :
+
+  1. **Base large (Tests Unitaires)** :
+     • Rapides à exécuter (< 1 seconde)
+     • Faciles à écrire et maintenir
+     • Feedback immédiat
+     • Isolés (pas de dépendances externes)
+
+  2. **Milieu (Tests d'Intégration)** :
+     • Testent les interactions entre modules
+     • Plus lents mais raisonnables (< 5 secondes)
+     • DB en mémoire ou containers
+     • Vérifient les contrats d'API
+
+  3. **Sommet (Tests E2E)** :
+     • Simulent le comportement utilisateur réel
+     • Très lents (> 10 secondes)
+     • Fragiles (dépendent de l'UI)
+     • Réservés aux parcours critiques
+
+  **Règle d'or** : Tester au niveau le plus bas possible
+endlegend
+
+@enduml

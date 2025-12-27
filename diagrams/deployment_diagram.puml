@@ -1,0 +1,84 @@
+@startuml Deployment_Diagram_CipeStudio
+
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v2.4.0
+
+skinparam componentStyle rectangle
+
+' Nœuds
+node "Navigateur Client" as Browser {
+  component [Frontend React\n(Build statique)] as Frontend
+}
+
+node "Serveur Web / Application" as AppServer {
+  component [Backend Spring Boot\n(JAR executable)] as Backend
+  component [Nginx\n(Reverse Proxy)] as Nginx
+}
+
+node "Serveur Base de Données" as DBServer {
+  database "MySQL 8.0" as MySQL {
+    folder "Tables" {
+      [users]
+      [books]
+      [collections]
+      [pages]
+      [reading_progress]
+      [reports]
+    }
+  }
+}
+
+node "Serveur de Stockage" as StorageServer {
+  component "SeaweedFS\n(S3-compatible)" as SeaweedFS {
+    folder "Buckets" {
+      folder "cipe-studio" {
+        [images/]
+        [avatars/]
+        [covers/]
+        [books/*/published/]
+      }
+    }
+  }
+}
+
+cloud "Services Externes" {
+  component "SMTP Server\n(Mailtrap / Gmail)" as SMTP
+}
+
+' Relations
+Browser -down-> Nginx : HTTPS\n(Port 443)
+Nginx -down-> Frontend : Servir fichiers statiques
+Nginx -down-> Backend : Proxy inverse\n(Port 8080)
+
+Backend -down-> MySQL : JDBC\n(Port 3306)
+Backend -down-> SeaweedFS : S3 API\n(Port 9000)
+Backend -right-> SMTP : SMTP\n(Port 587)
+
+Frontend -[hidden]down-> MySQL
+Frontend -[hidden]down-> SeaweedFS
+
+note right of Browser
+  Le frontend est une SPA (Single Page Application)
+  qui communique avec le backend via une API REST.
+  L'authentification utilise des JWT stockés
+  dans localStorage et des cookies httpOnly.
+end note
+
+note right of AppServer
+  Le backend et le frontend peuvent être déployés:
+  - Sur le même serveur (monolithique)
+  - Sur des serveurs séparés (scalabilité)
+
+  Docker Compose orchestre:
+  - Backend (Spring Boot)
+  - MySQL
+  - SeaweedFS
+end note
+
+note bottom of SeaweedFS
+  SeaweedFS est compatible S3, permettant
+  une migration facile vers AWS S3 si nécessaire.
+  Les fichiers sont accessibles publiquement
+  via des URLs signées.
+end note
+
+@enduml

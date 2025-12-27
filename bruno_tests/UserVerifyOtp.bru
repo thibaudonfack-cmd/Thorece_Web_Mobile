@@ -1,0 +1,54 @@
+meta {
+  name: UserVerifyOtp
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/auth/verify-otp
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{user_email}}",
+    "otpCode": "000000",
+    "stayConnected": true
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  // Capture du JWT (Body)
+  test("Access Token (JWT) is received", function() {
+      const body = res.getBody();
+      if (body && body.token) {
+          bru.setVar("author_token", body.token);
+      }
+      expect(body.token).to.be.a('string');
+      expect(body.token).to.not.be.empty;
+  });
+
+  // Validation stricte du Cookie (Refresh Token)
+  test("Refresh Token Cookie is correctly secured", function() {
+      const cookies = res.getHeader('set-cookie');
+      // Gestion du cas où il y a plusieurs cookies ou un seul
+      const cookieStr = Array.isArray(cookies) ? cookies.join(";") : cookies;
+
+      expect(cookieStr).to.not.be.undefined;
+      expect(cookieStr).to.include('refresh_token=');
+
+      // Sécurité
+      expect(cookieStr).to.include('HttpOnly');
+      expect(cookieStr).to.include('Path=/refresh');
+      expect(cookieStr).to.include('SameSite=Lax');
+
+      // Persistance (car stayConnected = true)
+      // On vérifie juste qu'il y a un Max-Age défini
+      expect(cookieStr).to.include('Max-Age=');
+  });
+}

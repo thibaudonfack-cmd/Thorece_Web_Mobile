@@ -1,0 +1,143 @@
+@startuml Diagramme_Cas_Utilisation_CipeStudio
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Visiteur" as Visitor
+actor "Enfant" as Child
+actor "Auteur" as Author
+actor "Éditeur" as Editor
+actor "Administrateur" as Admin
+
+' Héritage des acteurs
+Child -up-|> Visitor
+Author -up-|> Visitor
+Editor -up-|> Visitor
+Admin -up-|> Visitor
+
+rectangle "Cipe Studio" {
+
+  package "Système d'authentification" {
+    usecase "S'inscrire" as UC_Register
+    usecase "Se connecter" as UC_Login
+    usecase "Vérifier OTP" as UC_VerifyOTP
+    usecase "Se déconnecter" as UC_Logout
+    usecase "Réinitialiser mot de passe" as UC_ResetPassword
+    usecase "Modifier profil" as UC_UpdateProfile
+  }
+
+  package "Système Enfant" {
+    usecase "Consulter bibliothèque" as UC_ViewLibrary
+    usecase "Lire une histoire" as UC_ReadStory
+    usecase "Ajouter au sac personnel" as UC_AddToBag
+    usecase "Créer un personnage" as UC_CreateCharacter
+    usecase "Personnaliser personnage" as UC_CustomizeCharacter
+    usecase "Gérer sac personnel" as UC_ManageBag
+  }
+
+  package "Système Auteur" {
+    usecase "Créer un livre" as UC_CreateBook
+    usecase "Modifier un livre" as UC_UpdateBook
+    usecase "Supprimer un livre" as UC_DeleteBook
+    usecase "Publier un livre" as UC_PublishBook
+    usecase "Utiliser éditeur visuel" as UC_VisualEditor
+    usecase "Gérer mini-jeux" as UC_ManageMinigames
+    usecase "Créer mini-jeu" as UC_CreateMinigame
+    usecase "Upload couverture" as UC_UploadCover
+    usecase "Consulter statistiques" as UC_ViewStats
+    usecase "Consulter logs livre" as UC_ViewBookLogs
+    usecase "Prévisualiser livre" as UC_PreviewBook
+  }
+
+  package "Système Éditeur" {
+    usecase "Créer une collection" as UC_CreateCollection
+    usecase "Modifier une collection" as UC_UpdateCollection
+    usecase "Supprimer une collection" as UC_DeleteCollection
+    usecase "Ajouter livre à collection" as UC_AddBookToCollection
+    usecase "Retirer livre de collection" as UC_RemoveBookFromCollection
+    usecase "Consulter catalogue livres" as UC_ViewCatalog
+    usecase "Valider contenu" as UC_ValidateContent
+    usecase "Consulter logs collection" as UC_ViewCollectionLogs
+  }
+
+  package "Système Administrateur" {
+    usecase "Gérer utilisateurs" as UC_ManageUsers
+    usecase "Créer utilisateur" as UC_CreateUser
+    usecase "Modifier utilisateur" as UC_UpdateUser
+    usecase "Supprimer utilisateur" as UC_DeleteUser
+    usecase "Modifier rôle utilisateur" as UC_ChangeRole
+    usecase "Gérer signalements" as UC_ManageReports
+    usecase "Approuver signalement" as UC_ApproveReport
+    usecase "Rejeter signalement" as UC_RejectReport
+    usecase "Consulter tous les logs" as UC_ViewAllLogs
+  }
+
+  package "Système de signalement" {
+    usecase "Signaler contenu" as UC_ReportContent
+  }
+}
+
+' Relations Visiteur
+Visitor --> UC_Register
+Visitor --> UC_Login
+
+' Relations Enfant
+Child --> UC_VerifyOTP
+Child --> UC_Logout
+Child --> UC_UpdateProfile
+Child --> UC_ViewLibrary
+Child --> UC_ReadStory
+Child --> UC_AddToBag
+Child --> UC_CreateCharacter
+Child --> UC_CustomizeCharacter
+Child --> UC_ManageBag
+Child --> UC_ReportContent
+
+' Relations Auteur
+Author --> UC_VerifyOTP
+Author --> UC_Logout
+Author --> UC_UpdateProfile
+Author --> UC_CreateBook
+Author --> UC_UpdateBook
+Author --> UC_DeleteBook
+Author --> UC_PublishBook
+Author --> UC_VisualEditor
+Author --> UC_ManageMinigames
+Author --> UC_UploadCover
+Author --> UC_ViewStats
+Author --> UC_ViewBookLogs
+Author --> UC_PreviewBook
+Author --> UC_ReadStory
+
+' Relations Éditeur
+Editor --> UC_VerifyOTP
+Editor --> UC_Logout
+Editor --> UC_UpdateProfile
+Editor --> UC_CreateCollection
+Editor --> UC_UpdateCollection
+Editor --> UC_DeleteCollection
+Editor --> UC_AddBookToCollection
+Editor --> UC_RemoveBookFromCollection
+Editor --> UC_ViewCatalog
+Editor --> UC_ValidateContent
+Editor --> UC_ViewCollectionLogs
+
+' Relations Admin
+Admin --> UC_VerifyOTP
+Admin --> UC_Logout
+Admin --> UC_UpdateProfile
+Admin --> UC_ManageUsers
+Admin --> UC_ManageReports
+Admin --> UC_ViewAllLogs
+
+' Relations includes/extends
+UC_ManageMinigames .> UC_CreateMinigame : <<include>>
+UC_CreateBook .> UC_UploadCover : <<include>>
+UC_ManageUsers .> UC_CreateUser : <<include>>
+UC_ManageUsers .> UC_UpdateUser : <<include>>
+UC_ManageUsers .> UC_DeleteUser : <<include>>
+UC_ManageUsers .> UC_ChangeRole : <<include>>
+UC_ManageReports .> UC_ApproveReport : <<include>>
+UC_ManageReports .> UC_RejectReport : <<include>>
+
+@enduml

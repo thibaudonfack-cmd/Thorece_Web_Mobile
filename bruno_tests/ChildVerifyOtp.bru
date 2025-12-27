@@ -1,0 +1,34 @@
+meta {
+  name: ChildVerifyOtp
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{host}}/auth/verify-otp
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{child_email}}",
+    "otpCode": "000000",
+    "stayConnected": true
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Access Token (JWT) is received", function() {
+      const body = res.getBody();
+      if (body && body.token) {
+          bru.setVar("child_token", body.token);
+      }
+      expect(body.token).to.be.a('string');
+      expect(body.token).to.not.be.empty;
+  });
+}

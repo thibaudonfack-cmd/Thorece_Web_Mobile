@@ -1,0 +1,29 @@
+meta {
+  name: BookListAuthor
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{host}}/books/author
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("List contains the created book", function() {
+      const books = res.getBody();
+      const bookId = bru.getVar("book_id");
+      const found = books.find(b => b.id === bookId);
+      expect(found).to.not.be.undefined;
+      expect(found.title).to.equal("Le Mystère de la Forêt Enchantée");
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: BookContentUpdate
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{host}}/page/{{book_id}}/content
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:json {
+  {
+    "bookStatus": "PUBLISHED",
+    "bookContent": "{\"pages\": [{\"id\": 1, \"text\": \"Il était une fois...\"}, {\"id\": 2, \"text\": \"La fin.\"}]}"
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+  test("Returns published URL", function() {
+      expect(res.getBody().s3OriginalUrl).to.not.be.empty;
+  });
+}

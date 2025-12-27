@@ -1,0 +1,63 @@
+@startuml Sequence_Login_CipeStudio
+
+actor Utilisateur
+participant "Frontend\n(React)" as Frontend
+participant "Backend\n(Spring Boot)" as Backend
+participant "UserService" as Service
+participant "EmailService" as EmailService
+database "Database\n(MySQL)" as DB
+
+== Phase 1: Soumission des identifiants ==
+Utilisateur -> Frontend: Saisit email + mot de passe
+Frontend -> Frontend: Validation formulaire
+Frontend -> Backend: POST /auth/login\n{email, password}
+activate Backend
+
+Backend -> Service: login(email, password)
+activate Service
+
+Service -> DB: findByEmail(email)
+activate DB
+DB --> Service: User ou null
+deactivate DB
+
+alt Utilisateur n'existe pas
+    Service --> Backend: null
+    Backend --> Frontend: 400 Bad Request\n"Identifiants invalides"
+    Frontend --> Utilisateur: Message d'erreur
+else Utilisateur existe
+    Service -> Service: Vérifier mot de passe\n(bcrypt.verify)
+
+    alt Mot de passe incorrect
+        Service --> Backend: false
+        Backend --> Frontend: 400 Bad Request\n"Identifiants invalides"
+        Frontend --> Utilisateur: Message d'erreur
+    else Mot de passe correct
+        == Phase 2: Génération et envoi OTP ==
+        Service -> Service: Générer code OTP (6 chiffres)
+        Service -> DB: Sauvegarder OTP\n(expiryDate = now() + 15min)
+        activate DB
+        DB --> Service: OK
+        deactivate DB
+
+        Service -> EmailService: sendOTPEmail(email, code)
+        activate EmailService
+        EmailService -> EmailService: Composer email HTML
+        EmailService -> "SMTP\nServer": Envoyer email
+        EmailService --> Service: Email envoyé
+        deactivate EmailService
+
+        Service --> Backend: OTP envoyé
+        deactivate Service
+        Backend --> Frontend: 200 OK\n{message: "Code OTP envoyé"}
+        deactivate Backend
+        Frontend --> Utilisateur: "Un code a été envoyé\nà votre email"
+    end
+end
+
+== Phase 3: Redirection vers vérification OTP ==
+Frontend -> Frontend: Rediriger vers /otp/verify
+Utilisateur -> Frontend: Saisit code OTP reçu
+note right: Voir diagramme\nsequence_verify_otp.puml
+
+@enduml

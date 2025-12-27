@@ -1,0 +1,21 @@
+meta {
+  name: UserLogout
+  type: http
+  seq: 31
+}
+
+post {
+  url: {{host}}/auth/logout
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+script:post-response {
+  test("Status code is 204", function() {
+      expect(res.getStatus()).to.equal(204);
+  });
+}

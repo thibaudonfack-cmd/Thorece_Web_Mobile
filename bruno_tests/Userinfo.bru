@@ -1,0 +1,32 @@
+meta {
+  name: Userinfo
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/users/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("User info is correct", function() {
+      expect(res.getBody().email).to.equal(bru.getVar("user_email"));
+      expect(res.getBody().role).to.equal("AUTEUR");
+  });
+  test("Avatar URL is updated", function() {
+      const uploadedUrl = bru.getVar("uploaded_avatar_url");
+      if (uploadedUrl) {
+        expect(res.getBody().avatar).to.equal(uploadedUrl);
+      }
+  });
+}

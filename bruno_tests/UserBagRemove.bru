@@ -1,0 +1,21 @@
+meta {
+  name: UserBagRemove
+  type: http
+  seq: 18
+}
+
+delete {
+  url: {{host}}/users/me/bag/{{book_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{child_token}}
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+}

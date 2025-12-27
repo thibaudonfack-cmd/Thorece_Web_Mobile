@@ -1,0 +1,33 @@
+meta {
+  name: BookUpdate
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{host}}/books/{{book_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:json {
+  {
+    "title": "Le Mystère de la Forêt Enchantée",
+    "description": "Mise à jour de la description...",
+    "status": "DRAFT"
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Title is updated", function() {
+      expect(res.getBody().title).to.equal("Le Mystère de la Forêt Enchantée");
+  });
+}

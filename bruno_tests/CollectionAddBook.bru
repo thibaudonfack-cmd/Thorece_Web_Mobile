@@ -1,0 +1,27 @@
+meta {
+  name: CollectionAddBook
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{host}}/collections/{{collection_id}}/books
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{editor_token}}
+}
+
+body:json {
+  {
+    "bookId": {{book_id}}
+  }
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+}

@@ -1,0 +1,78 @@
+@startuml Sequence_VerifyOTP_CipeStudio
+
+actor Utilisateur
+participant "Frontend\n(React)" as Frontend
+participant "Backend\n(Spring Boot)" as Backend
+participant "UserService" as Service
+participant "JwtUtils" as JWT
+participant "RefreshTokenService" as RefreshService
+database "Database\n(MySQL)" as DB
+
+Utilisateur -> Frontend: Saisit code OTP (6 chiffres)
+Frontend -> Frontend: Validation formulaire
+Frontend -> Backend: POST /auth/verify-otp\n{email, code}
+activate Backend
+
+Backend -> Service: verifyOTP(email, code)
+activate Service
+
+== Vérification du code OTP ==
+Service -> DB: findByEmail(email)
+activate DB
+DB --> Service: User
+deactivate DB
+
+Service -> Service: Récupérer OTP sauvegardé
+
+alt Code OTP invalide ou expiré
+    Service --> Backend: false
+    Backend --> Frontend: 400 Bad Request\n"Code invalide ou expiré"
+    Frontend --> Utilisateur: Message d'erreur
+    Utilisateur -> Frontend: Peut redemander un code
+else Code OTP valide
+    Service -> DB: Marquer utilisateur\ncomme vérifié\n(isVerified = true)
+    activate DB
+    DB --> Service: OK
+    deactivate DB
+
+    Service -> DB: Supprimer OTP\n(code utilisé)
+    activate DB
+    DB --> Service: OK
+    deactivate DB
+
+    == Génération des tokens ==
+    Service -> JWT: generateAccessToken(user)
+    activate JWT
+    JWT -> JWT: Créer JWT avec claims:\n- userId\n- email\n- role\n- expiration: 15 min
+    JWT --> Service: accessToken (JWT)
+    deactivate JWT
+
+    Service -> RefreshService: createRefreshToken(user)
+    activate RefreshService
+    RefreshService -> RefreshService: Générer UUID\nexpiration: 7 jours
+    RefreshService -> DB: Sauvegarder refresh token
+    activate DB
+    DB --> RefreshService: OK
+    deactivate DB
+    RefreshService --> Service: refreshToken (UUID)
+    deactivate RefreshService
+
+    == Configuration des cookies ==
+    Service -> Backend: Tokens créés
+    deactivate Service
+    Backend -> Backend: Créer cookies HTTP:\n- accessToken (httpOnly, secure)\n- refreshToken (httpOnly, secure, sameSite)
+
+    Backend --> Frontend: 200 OK\n{user: {...}}\n+ Cookies (accessToken, refreshToken)
+    deactivate Backend
+
+    == Sauvegarde et redirection ==
+    Frontend -> Frontend: Sauvegarder accessToken\ndans localStorage
+    Frontend -> Frontend: Sauvegarder user\ndans AuthContext
+    Frontend --> Utilisateur: Authentification réussie
+
+    Frontend -> Frontend: Rediriger selon rôle:\n- ENFANT → /child/library\n- AUTEUR → /author\n- EDITEUR → /editor\n- ADMIN → /admin
+
+    Utilisateur -> Utilisateur: Accès à la plateforme
+end
+
+@enduml

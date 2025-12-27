@@ -1,0 +1,35 @@
+meta {
+  name: BookCreate
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{host}}/books
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{author_token}}
+}
+
+body:json {
+  {
+    "title": "Le Mystère de la Forêt",
+    "description": "Un livre interactif pour les enfants aventureux.",
+    "status": "DRAFT"
+  }
+}
+
+script:post-response {
+  test("Status code is 201", function() {
+      expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response contains book ID", function() {
+      const body = res.getBody();
+      expect(body.id).to.be.a('number');
+      bru.setVar("book_id", body.id);
+  });
+}

@@ -1,0 +1,359 @@
+@startuml Activity_Refresh_Token_CipeStudio
+
+|Frontend|
+start
+
+note right
+  **Déclencheurs du refresh** :
+  1. Automatique : Access token expiré (401/403)
+  2. Manuel : Avant l'expiration (proactif)
+  3. Au chargement de l'application
+end note
+
+:Détecter besoin de\nnouveau access token;
+
+note right
+  **Cas déclencheurs** :
+  • Requête API → 401 Unauthorized
+  • Requête API → 403 Forbidden
+  • Access token expiré (JWT decode)
+  • Refresh préventif avant expiration
+end note
+
+:Envoyer requête\nPOST /refresh;
+
+note right
+  **Configuration requête** :
+  • URL : POST /refresh
+  • Headers : Content-Type: application/json
+  • Credentials : include (pour envoyer cookies)
+  • Body : {} (vide, le refresh token est dans les cookies)
+
+  **Cookies envoyés automatiquement** :
+  • refresh_token (httpOnly)
+  • access_token (httpOnly, expiré)
+end note
+
+|Backend - RefreshTokenController|
+:Recevoir requête POST /refresh;
+
+:Extraire refresh token\ndepuis les cookies;
+
+if (Refresh token présent ?) then (non)
+  #FFB6C1:Retourner 400\nBad Request;
+  note right
+    Message : "Refresh token manquant"
+  end note
+  |Frontend|
+  :Supprimer tokens locaux;
+  :Rediriger vers /login;
+  stop
+else (oui)
+endif
+
+|Backend - RefreshTokenService|
+:Valider la signature JWT\ndu refresh token;
+
+if (Signature valide ?) then (non)
+  #FFB6C1:Lancer exception\nInvalidTokenException;
+  |Backend - RefreshTokenController|
+  :Retourner 401\nUnauthorized;
+  note right
+    Message : "Token invalide ou corrompu"
+  end note
+  |Frontend|
+  :Supprimer tokens locaux;
+  :Rediriger vers /login;
+  stop
+else (oui)
+endif
+
+:Décoder le refresh token\n(extraire claims);
+
+note right
+  **Claims du refresh token** :
+  • sub : userId
+  • exp : expiration timestamp
+  • iat : issued at timestamp
+  • jti : token unique ID (optionnel)
+end note
+
+:Vérifier la date\nd'expiration;
+
+if (Token expiré ?) then (oui)
+  #FFB6C1:Lancer exception\nTokenExpiredException;
+  |Backend - RefreshTokenController|
+  :Retourner 401\nUnauthorized;
+  note right
+    Message : "Refresh token expiré,
+    veuillez vous reconnecter"
+  end note
+  |Frontend|
+  :Supprimer tokens locaux;
+  :Rediriger vers /login;
+  stop
+else (non)
+endif
+
+|Backend - RefreshTokenRepository|
+:Rechercher le refresh token\nen base de données;
+
+partition "Vérification en base de données" {
+  :SELECT * FROM refresh_tokens\nWHERE token = ? AND user_id = ?;
+
+  if (Token trouvé en DB ?) then (non)
+    #FFB6C1:Token non trouvé;
+    note right
+      **Cas possible** :
+      • Token jamais créé (falsifié)
+      • Token supprimé manuellement
+      • Nettoyage automatique effectué
+    end note
+    |Backend - RefreshTokenController|
+    :Retourner 401\nUnauthorized;
+    |Frontend|
+    :Supprimer tokens locaux;
+    :Rediriger vers /login;
+    stop
+  else (oui)
+  endif
+
+  if (Token révoqué ?) then (oui)
+    #FFB6C1:Token blacklisté;
+    note right
+      **Révocation possible par** :
+      • Utilisateur : déconnexion manuelle
+      • Admin : blocage du compte
+      • Sécurité : activité suspecte
+    end note
+    |Backend - RefreshTokenController|
+    :Retourner 401\nUnauthorized;
+    note right
+      Message : "Session révoquée,
+      veuillez vous reconnecter"
+    end note
+    |Frontend|
+    :Supprimer tokens locaux;
+    :Rediriger vers /login;
+    stop
+  else (non)
+  endif
+}
+
+|Backend - RefreshTokenService|
+:Extraire userId\ndu refresh token;
+
+|Backend - UserRepository|
+:Rechercher l'utilisateur\npar ID;
+
+if (Utilisateur existe ?) then (non)
+  #FFB6C1:Utilisateur introuvable;
+  |Backend - RefreshTokenController|
+  :Retourner 401\nUnauthorized;
+  |Frontend|
+  :Supprimer tokens locaux;
+  :Rediriger vers /login;
+  stop
+else (oui)
+endif
+
+if (Utilisateur bloqué ?) then (oui)
+  #FFB6C1:Compte bloqué;
+  note right
+    is_blocked = TRUE
+  end note
+  |Backend - RefreshTokenController|
+  :Retourner 403\nForbidden;
+  note right
+    Message : "Votre compte a été bloqué"
+  end note
+  |Frontend|
+  :Supprimer tokens locaux;
+  :Afficher message\n"Compte bloqué";
+  stop
+else (non)
+endif
+
+|Backend - JwtUtils|
+partition "Génération nouveau access token" {
+  :Créer nouveau JWT\navec claims utilisateur;
+
+  note right
+    **Claims du nouvel access token** :
+    • sub : userId
+    • email : user.email
+    • role : user.role
+    • exp : maintenant + 15 minutes
+    • iat : maintenant
+  end note
+
+  :Signer le token avec\nla clé secrète;
+}
+
+|Backend - RefreshTokenController|
+:Créer cookie httpOnly\navec le nouvel access token;
+
+note right
+  **Configuration cookie** :
+  • Name : "access_token"
+  • Value : nouveau JWT
+  • HttpOnly : true
+  • Secure : true (HTTPS uniquement)
+  • SameSite : Strict
+  • MaxAge : 15 minutes
+  • Path : /
+end note
+
+:Retourner 200 OK\navec nouveau cookie;
+
+note right
+  **Response** :
+  {
+    "message": "Token refreshed successfully"
+  }
+
+  + Cookie "access_token" dans headers
+end note
+
+|Frontend|
+:Recevoir réponse 200 OK;
+
+:Nouveau access token\nautomatiquement stocké\ndans les cookies;
+
+note right
+  Le navigateur stocke automatiquement
+  le cookie httpOnly. Le frontend n'a pas
+  besoin de manipuler le token.
+end note
+
+:Rejouer la requête initiale\navec le nouveau token;
+
+note right
+  **Intercepteur Axios/Fetch** :
+  Si la requête initiale a échoué avec 401,
+  elle est automatiquement rejouée après
+  le refresh réussi.
+
+  Exemple :
+  1. GET /books → 401 (token expiré)
+  2. POST /refresh → 200 (nouveau token)
+  3. GET /books → 200 (avec nouveau token)
+end note
+
+if (Requête rejouée\nréussie ?) then (oui)
+  :Afficher les données\nà l'utilisateur;
+  stop
+else (non)
+  #FFFFCC:Afficher erreur\nde la requête;
+  stop
+endif
+
+' Cas d'erreur réseau
+|Frontend|
+if (Erreur réseau\nlors du refresh ?) then (oui)
+  #FFB6C1:Afficher message\n"Erreur de connexion";
+  :Réessayer après\nquelques secondes;
+  stop
+endif
+
+legend right
+  **Mécanisme de refresh automatique (Frontend)** :
+
+  **1. Intercepteur de requêtes** :
+  ```javascript
+  // axios interceptor
+  axios.interceptors.response.use(
+    response => response,
+    async error => {
+      const originalRequest = error.config;
+
+      // Si 401 et pas déjà retryé
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+
+        try {
+          // Tenter le refresh
+          await axios.post('/refresh', {}, { withCredentials: true });
+
+          // Rejouer la requête originale
+          return axios(originalRequest);
+        } catch (refreshError) {
+          // Refresh échoué → logout
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
+  ```
+
+  **2. Refresh préventif** :
+  ```javascript
+  // Refresh 1 minute avant expiration
+  useEffect(() => {
+    const checkTokenExpiry = () => {
+      const token = parseJwt(accessToken);
+      const expiresIn = token.exp * 1000 - Date.now();
+
+      if (expiresIn < 60000) { // < 1 minute
+        fetch('/refresh', { credentials: 'include' });
+      }
+    };
+
+    const interval = setInterval(checkTokenExpiry, 30000);
+    return () => clearInterval(interval);
+  }, []);
+  ```
+
+  **3. Gestion des erreurs** :
+  • 401 lors du refresh → Redirection /login
+  • Token révoqué → Message + redirection
+  • Erreur réseau → Retry avec backoff exponentiel
+endlegend
+
+note bottom
+  **Sécurité et bonnes pratiques** :
+
+  **1. Rotation des refresh tokens (recommandé)** :
+  • À chaque refresh, générer aussi un nouveau refresh token
+  • Révoquer l'ancien refresh token
+  • Empêche la réutilisation de tokens volés
+
+  **2. Token Binding (avancé)** :
+  • Lier le refresh token à l'IP ou fingerprint du client
+  • Détecter les utilisations suspectes
+
+  **3. Détection d'anomalies** :
+  • Limiter le nombre de refresh par heure (rate limiting)
+  • Logger tous les refresh (audit trail)
+  • Alerte si refresh depuis plusieurs IPs différentes
+
+  **4. Durées de vie recommandées** :
+  • Access token : 15 minutes (actuel)
+  • Refresh token : 7-30 jours
+  • Équilibre sécurité vs UX
+
+  **5. Nettoyage automatique** :
+  • Cron job pour supprimer les refresh tokens expirés
+  • Éviter l'accumulation en base de données
+
+  **6. Révocation globale** :
+  • Endpoint /logout-all pour révoquer tous les tokens d'un user
+  • Utile en cas de compte compromis
+
+  **Implémentation actuelle vs Recommandations** :
+  ✅ Actuellement implémenté :
+  • Refresh token en base de données
+  • Vérification de révocation
+  • Cookies httpOnly sécurisés
+
+  🔄 À améliorer :
+  • Rotation des refresh tokens
+  • Rate limiting sur /refresh
+  • Logging des refresh pour audit
+  • Nettoyage automatique des tokens expirés
+end note
+
+@enduml

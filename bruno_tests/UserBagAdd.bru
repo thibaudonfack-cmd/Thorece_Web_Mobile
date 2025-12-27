@@ -1,0 +1,21 @@
+meta {
+  name: UserBagAdd
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{host}}/users/me/bag/{{book_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{child_token}}
+}
+
+script:post-response {
+  test("Status code is 200", function() {
+      expect(res.getStatus()).to.equal(200);
+  });
+}

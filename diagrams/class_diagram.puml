@@ -1,0 +1,223 @@
+@startuml Class_Diagram_CipeStudio
+
+' Entités principales
+
+class User {
+  - Long id {PK}
+  - String name
+  - String email {UNIQUE}
+  - String password
+  - String avatar
+  - Role role {ENUM}
+  - Boolean isVerified
+  - Boolean isBlocked
+  - String otpCode
+  - LocalDateTime otpExpiryDate
+  - LocalDateTime createdAt
+  - LocalDateTime updatedAt
+  --
+  + List<Book> authoredBooks
+  + List<Collection> managedCollections
+  + List<ReadingProgress> library
+  + List<Report> reportsMade
+}
+
+enum Role {
+  ENFANT
+  AUTEUR
+  EDITEUR
+  ADMIN
+}
+
+class Book {
+  - Long id {PK}
+  - String title
+  - String description
+  - String coverUrl
+  - BookStatus status {ENUM}
+  - Long authorId {FK}
+  - LocalDateTime createdAt
+  - LocalDateTime updatedAt
+  --
+  + User author
+  + Page page (One-to-One)
+  + List<Collection> collections (Many-to-Many)
+  + List<ReadingProgress> readingProgress
+  + List<Report> reports
+  --
+  @Formula("(SELECT COUNT(*) FROM reading_progress rp WHERE rp.book_id = id)")
+  + Integer views
+  @Formula("(SELECT COUNT(*) FROM report r WHERE r.book_id = id)")
+  + Integer reportsCount
+}
+
+enum BookStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+class Collection {
+  - Long id {PK}
+  - String name
+  - String description
+  - String coverUrl
+  - String icon
+  - String tags
+  - Long editorId {FK}
+  - LocalDateTime createdAt
+  - LocalDateTime updatedAt
+  --
+  + User editor
+  + List<Book> books (Many-to-Many)
+}
+
+class Page {
+  - Long id {PK}
+  - Long bookId {FK, UNIQUE}
+  - String draftUrl
+  - String publishedUrl
+  - LocalDateTime updatedAt
+  --
+  + Book book (One-to-One)
+}
+
+class ReadingProgress {
+  - Long id {PK}
+  - Long readerId {FK}
+  - Long bookId {FK}
+  - Integer currentPage
+  - Boolean isRead
+  - Boolean isOwned
+  - LocalDateTime lastReadAt
+  - LocalDateTime createdAt
+  --
+  + User reader
+  + Book book
+  --
+  UNIQUE(readerId, bookId)
+}
+
+class Report {
+  - Long id {PK}
+  - Long reporterId {FK}
+  - Long bookId {FK}
+  - ReportReason reason {ENUM}
+  - String description
+  - ReportStatus status {ENUM}
+  - LocalDateTime createdAt
+  - LocalDateTime updatedAt
+  --
+  + User reporter
+  + Book book
+}
+
+enum ReportReason {
+  INAPPROPRIATE_CONTENT
+  VIOLENCE
+  HATE_SPEECH
+  SPAM
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+class MiniGame {
+  - Long id {PK}
+  - String name
+  - String description
+  - GameType type {ENUM}
+  - String contentJson
+  - Long parentPageId {FK}
+  - LocalDateTime createdAt
+  - LocalDateTime updatedAt
+  --
+  + Page parentPage
+}
+
+enum GameType {
+  DIGITAL_LOCK
+  FILL_BLANKS
+  QUIZ
+  MEMORY
+}
+
+class RefreshToken {
+  - Long id {PK}
+  - String token {UNIQUE}
+  - Long userId {FK}
+  - LocalDateTime expiryDate
+  - Boolean revoked
+  --
+  + User user
+}
+
+' Table de liaison Many-to-Many
+class CollectionBooks <<join table>> {
+  - Long collectionId {PK, FK}
+  - Long bookId {PK, FK}
+}
+
+' Relations
+
+User "1" -- "*" Book : "author"
+User "1" -- "*" Collection : "editor"
+User "1" -- "*" ReadingProgress : "reader"
+User "1" -- "*" Report : "reporter"
+User "1" -- "*" RefreshToken
+
+User -- Role
+
+Book "1" -- "1" Page
+Book "1" -- "*" ReadingProgress
+Book "1" -- "*" Report
+Book "*" -- "*" Collection
+Book -- BookStatus
+
+(Book, Collection) .. CollectionBooks
+
+Collection -- User
+
+ReadingProgress -- User
+ReadingProgress -- Book
+
+Report -- User
+Report -- Book
+Report -- ReportReason
+Report -- ReportStatus
+
+Page "1" -- "*" MiniGame
+
+MiniGame -- GameType
+
+RefreshToken -- User
+
+note right of User
+  Un utilisateur peut avoir plusieurs rôles
+  selon le système (mais un seul rôle actif
+  à la fois dans notre implémentation)
+end note
+
+note right of Book
+  Les formules @Formula permettent de
+  calculer views et reportsCount
+  directement en SQL sans requête N+1
+end note
+
+note right of Page
+  Relation One-to-One avec Book
+  Un livre a exactement une page de contenu
+  (qui contient deux URLs: draft et published)
+end note
+
+note bottom of ReadingProgress
+  La contrainte UNIQUE(readerId, bookId)
+  garantit qu'un utilisateur ne peut avoir
+  qu'une seule progression par livre
+end note
+
+@enduml
