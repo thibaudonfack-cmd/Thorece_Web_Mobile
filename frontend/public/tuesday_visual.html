@@ -1141,15 +1141,16 @@ function creation_block(b){
                 if (story_script[chapter.id][i].dialogs) {
                     for (var d=0; d<story_script[chapter.id][i].dialogs.length; d++) {
                         var dialog = story_script[chapter.id][i].dialogs[d];
-                        if (dialog.variables) {
-                            var gameVar = dialog.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
-                            if (gameVar) {
-                                hasMiniGame = true;
-                                miniGameId = gameVar[2];
-                                break;
-                            }
-                        }
-                    }
+                                            if (dialog.variables) {
+                                                var gameVar = dialog.variables.find(function(v) { 
+                                                    return (v.name === 'trigger_game_id') || (Array.isArray(v) && v[0] === 'trigger_game_id'); 
+                                                });
+                                                if (gameVar) {
+                                                    hasMiniGame = true;
+                                                    miniGameId = gameVar.value || gameVar[2];
+                                                    break;
+                                                }
+                                            }                    }
                 }
                 if (hasMiniGame) break;
             }
@@ -6417,10 +6418,11 @@ window.addEventListener('message', (event) => {
                         });
 
                         // Add new variables
-                        dialog.variables.push(['trigger_game_id', 'set', gameId]);
-                        dialog.variables.push(['minigame_type', 'set', config.type]);
-                        dialog.variables.push(['success_target', 'set', config.successTarget]);
-                        dialog.variables.push(['fail_target', 'set', config.failTarget]);
+                        // Add new variables
+                        dialog.variables.push({ name: 'trigger_game_id', value: gameId });
+                        dialog.variables.push({ name: 'minigame_type', value: config.type });
+                        dialog.variables.push({ name: 'success_target', value: config.successTarget });
+                        dialog.variables.push({ name: 'fail_target', value: config.failTarget });
                         
                         update_novel();
                         toast("Mini-jeu attaché à la scène " + (sceneIdx + 1));
@@ -6444,10 +6446,11 @@ window.addEventListener('message', (event) => {
                             return !['trigger_game_id', 'minigame_type', 'success_target', 'fail_target'].includes(v[0]);
                         });
                         
-                        dialog.variables.push(['trigger_game_id', 'set', gameId]);
-                        dialog.variables.push(['minigame_type', 'set', config.type]);
-                        dialog.variables.push(['success_target', 'set', config.successTarget]);
-                        dialog.variables.push(['fail_target', 'set', config.failTarget]);
+                        // Add new variables
+                        dialog.variables.push({ name: 'trigger_game_id', value: gameId });
+                        dialog.variables.push({ name: 'minigame_type', value: config.type });
+                        dialog.variables.push({ name: 'success_target', value: config.successTarget });
+                        dialog.variables.push({ name: 'fail_target', value: config.failTarget });
                         
                         update_novel();
                         toast("Mini-jeu attaché au bloc " + block_active);

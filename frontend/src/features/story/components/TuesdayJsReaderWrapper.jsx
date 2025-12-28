@@ -16,7 +16,46 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
     };
 
     useEffect(() => {
-        if (!storyJson) return;
+        const handleDialogCreation = () => {
+            // 1. Récupération défensive de l'état du moteur
+            // Tuesday JS met à jour ces variables globales à chaque changement de dialogue
+            if (typeof window.tuesday === 'undefined' && typeof window.scene === 'undefined') return;
+
+            const currentSceneIndex = window.scene;
+            const currentDialogIndex = window.dialog;
+            const story = window.story_json;
+
+            // 2. Vérification de l'existence du bloc dans le JSON
+            if (story && 
+                story[window.tue_story] && 
+                story[window.tue_story][currentSceneIndex]) {
+                
+                const currentScene = story[window.tue_story][currentSceneIndex];
+                
+                if (currentScene.dialogs && currentScene.dialogs[currentDialogIndex]) {
+                    const currentBlock = currentScene.dialogs[currentDialogIndex];
+
+                    // 3. Recherche de la variable déclencheur DANS LE BLOC ACTIF
+                    if (currentBlock.variables && Array.isArray(currentBlock.variables)) {
+                        const gameTrigger = currentBlock.variables.find(v => v.name === "trigger_game_id");
+                        
+                        if (gameTrigger) {
+                            console.log("🧩 Mini-jeu détecté sur ce dialogue ! ID:", gameTrigger.value);
+                            
+                            // A. Pause visuelle du moteur (empêcher de cliquer sur 'Suivant')
+                            // Note: We access the element inside the iframe via iframeRef
+                            if (iframeRef.current) {
+                                const tuesdayUi = iframeRef.current.contentWindow.document.getElementById('tuesday');
+                                if (tuesdayUi) tuesdayUi.style.pointerEvents = 'none';
+                            }
+
+                            // B. Déclenchement de l'affichage React
+                            setMiniGameId(gameTrigger.value);
+                        }
+                    }
+                }
+            }
+        };
 
         const handleMessage = (event) => {
             if (event.source !== iframeRef.current?.contentWindow) return;
@@ -26,15 +65,16 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                     { type: 'LOAD_STORY', story: storyJson },
                     '*'
                 );
-            } else if (event.data.type === 'TRIGGER_GAME') {
-                setMiniGameId(event.data.gameId);
             }
         };
 
         window.addEventListener('message', handleMessage);
-        
+        // Abonnement à l'événement du moteur
+        document.addEventListener('creation_dialog', handleDialogCreation);
+
         return () => {
             window.removeEventListener('message', handleMessage);
+            document.removeEventListener('creation_dialog', handleDialogCreation);
         };
     }, [storyJson]);
 
@@ -56,39 +96,32 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
             <meta name='viewport' content='width=device-width, initial-scale=1'>
             <style>
                 body { margin: 0; overflow: hidden; background: black; }
-                #tuesday { width: 100vw; height: 100vh; }
+                #tuesday { width: 100vw; height: 100vh; visibility: hidden; opacity: 0; transition: opacity 0.5s; }
             </style>
         </head>
         <body>
             <div id="tuesday"></div>
             <script src="/tuesday.js"></script>
             <script>
-                // Listen for creation_dialog event to detect game triggers
-                document.addEventListener('creation_dialog', function() {
-                     // Check current scene/dialog variables in engine state
-                     const currentSceneId = window.tue_story;
-                     const sceneIdx = window.scene;
-                     const dialogIdx = window.dialog;
+                // Fonction utilitaire pour corriger les URLs pour le frontend
+                const fixImageUrls = (json) => {
+                    let jsonString = JSON.stringify(json);
+                    // Remplace l'URL interne Docker par l'URL publique
+                    jsonString = jsonString.replace(/http:\\/\\/seaweedfs:8888/g, "http://localhost:8888"); 
+                    return JSON.parse(jsonString);
+                };
 
-                     if (window.story_json && window.story_json[currentSceneId] && window.story_json[currentSceneId][sceneIdx]) {
-                         const sceneObj = window.story_json[currentSceneId][sceneIdx];
-                         if (sceneObj.dialogs && sceneObj.dialogs[dialogIdx]) {
-                             const dialogObj = sceneObj.dialogs[dialogIdx];
-                             if (dialogObj.variables) {
-                                 const gameVar = dialogObj.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
-                                 if (gameVar) {
-                                     window.parent.postMessage({ 
-                                         type: 'TRIGGER_GAME', 
-                                         gameId: gameVar[2] 
-                                     }, '*');
-                                     
-                                     // Pause interactions in the engine
-                                     const engineEl = document.getElementById('tuesday');
-                                     if (engineEl) engineEl.style.pointerEvents = 'none';
-                                 }
-                             }
-                         }
-                     }
+                // Listen for creation_dialog event to detect game triggers and sync with parent
+                document.addEventListener('creation_dialog', function() {
+                     // Sync internal state to parent window for its useEffect to work
+                     window.parent.tue_story = window.tue_story;
+                     window.parent.scene = window.scene;
+                     window.parent.dialog = window.dialog;
+                     window.parent.story_json = window.story_json;
+                     window.parent.tuesday = window.tuesday;
+
+                     // Dispatch event on parent document
+                     window.parent.document.dispatchEvent(new CustomEvent('creation_dialog'));
                 });
 
                 window.addEventListener('message', function(event) {
@@ -103,10 +136,24 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                                 return;
                             }
                         }
+                        
+                        // Correction des URLs
+                        story = fixImageUrls(story);
 
                         if (typeof load_story === 'function') {
                             try {
-                                load_story('data', story);
+                                // 1. IMPORTANT : On force l'élément racine à être visible
+                                const tuesdayElement = document.getElementById('tuesday');
+                                if (tuesdayElement) {
+                                    tuesdayElement.style.visibility = 'visible';
+                                    tuesdayElement.style.opacity = '1';
+                                }
+
+                                // 2. Lancement manuel sécurisé
+                                setTimeout(() => {
+                                    load_story('data', story);
+                                }, 100);
+                                
                             } catch (err) {
                                 console.error("Error calling load_story:", err);
                             }
@@ -118,15 +165,19 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                         const engineEl = document.getElementById('tuesday');
                         if (engineEl) engineEl.style.pointerEvents = 'auto';
 
-                        // Clear trigger to avoid re-looping if staying on same scene (though usually we jump)
-                        if (window.story_json && window.story_json.parameters && window.story_json.parameters.variables) {
-                             window.story_json.parameters.variables.trigger_game_id = null;
+                        // Clear trigger to avoid re-looping
+                        if (window.story_json && window.story_json[window.tue_story] && window.story_json[window.tue_story][window.scene]) {
+                             const dialogObj = window.story_json[window.tue_story][window.scene].dialogs[window.dialog];
+                             if (dialogObj && dialogObj.variables) {
+                                 dialogObj.variables = dialogObj.variables.filter(function(v) { return v.name !== 'trigger_game_id'; });
+                             }
                         }
 
                         if (typeof go_to === 'function' && event.data.scene) {
                             go_to(event.data.scene);
                         } else {
-                            console.warn("go_to function missing or scene not provided");
+                            // If no scene provided, maybe just continue
+                            console.log("No redirection scene provided, continuing...");
                         }
                     }
                 });
