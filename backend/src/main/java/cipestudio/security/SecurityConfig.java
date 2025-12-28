@@ -44,6 +44,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/auth/register","/auth/verify-otp","/refresh","/auth/login","/auth/forgot-password","/auth/reset-password","/error").permitAll()
+                    .requestMatchers("/api/minigames/**").hasAnyAuthority("SCOPE_ROLE_AUTEUR", "SCOPE_ROLE_EDITEUR", "SCOPE_ROLE_ADMIN")
                     .anyRequest().authenticated())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

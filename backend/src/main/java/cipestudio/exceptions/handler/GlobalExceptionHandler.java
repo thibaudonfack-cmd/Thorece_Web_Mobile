@@ -44,4 +44,14 @@ public class GlobalExceptionHandler {
         error.put("message", ex.getMessage());
         return error;
     }
+
+    @ExceptionHandler(Exception.class)
+    public org.springframework.http.ResponseEntity<Object> handleAllExceptions(Exception ex) {
+        ex.printStackTrace();
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", ex.getMessage() != null ? ex.getMessage() : "Erreur interne du serveur");
+        body.put("error", ex.getClass().getSimpleName());
+        body.put("timestamp", java.time.LocalDateTime.now());
+        return new org.springframework.http.ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

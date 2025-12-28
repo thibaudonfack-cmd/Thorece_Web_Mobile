@@ -32,7 +32,7 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
         };
 
         window.addEventListener('message', handleMessage);
-
+        
         return () => {
             window.removeEventListener('message', handleMessage);
         };
@@ -65,16 +65,29 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
             <script>
                 // Listen for creation_dialog event to detect game triggers
                 document.addEventListener('creation_dialog', function() {
-                     const storyVars = window.story_json && window.story_json.parameters && window.story_json.parameters.variables;
-                     if (storyVars && storyVars.trigger_game_id) {
-                         window.parent.postMessage({ 
-                             type: 'TRIGGER_GAME', 
-                             gameId: storyVars.trigger_game_id 
-                         }, '*');
-                         
-                         // Pause interactions in the engine
-                         const engineEl = document.getElementById('tuesday');
-                         if (engineEl) engineEl.style.pointerEvents = 'none';
+                     // Check current scene/dialog variables in engine state
+                     const currentSceneId = window.tue_story;
+                     const sceneIdx = window.scene;
+                     const dialogIdx = window.dialog;
+
+                     if (window.story_json && window.story_json[currentSceneId] && window.story_json[currentSceneId][sceneIdx]) {
+                         const sceneObj = window.story_json[currentSceneId][sceneIdx];
+                         if (sceneObj.dialogs && sceneObj.dialogs[dialogIdx]) {
+                             const dialogObj = sceneObj.dialogs[dialogIdx];
+                             if (dialogObj.variables) {
+                                 const gameVar = dialogObj.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
+                                 if (gameVar) {
+                                     window.parent.postMessage({ 
+                                         type: 'TRIGGER_GAME', 
+                                         gameId: gameVar[2] 
+                                     }, '*');
+                                     
+                                     // Pause interactions in the engine
+                                     const engineEl = document.getElementById('tuesday');
+                                     if (engineEl) engineEl.style.pointerEvents = 'none';
+                                 }
+                             }
+                         }
                      }
                 });
 

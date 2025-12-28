@@ -1310,10 +1310,10 @@ function creation_block(b){
         // ADD MINI-GAME INDICATOR TO HEADER
         var headerIcon = "";
         if (hasMiniGame) {
-            headerIcon = "<td align='center' title='Mini-jeu: "+miniGameId+"' style='font-size:18px;width:30px;'>🧩</td>";
+            headerIcon = "<td align='center' title='Mini-jeu: "+miniGameId+"' style='font-size:18px;width:30px;cursor:pointer;'>🧩</td>";
         }
 
-        chapter.innerHTML="<div style='margin:2px;'><table height='100%' width='100%'><tbody><tr><td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');story_script.blocks['"+chapter.id+"'][2]=((story_script.blocks['"+chapter.id+"'][2]=='none')?'block':'none');\" class='button_block icon icon_more'></td>"+headerIcon+"<td align='center'>"+((chapter.id.length>17)?chapter.id.slice(0,15)+"...":chapter.id )+"</td><td align='center' style='cursor:pointer;width:48px;' onmouseup=\"edit_block('"+chapter.id+"')\" class='icon_m button_block icon_edit'></td><td align='center' style='cursor:pointer;' onmouseup=\"play_novel('"+chapter.id+"')\" class='icon_m button_block icon_play'></td><td style='width:8px;'></td> </tr></tbody></table></div><div id='"+chapter.id+"_content' style='display:"+((story_script.blocks[chapter.id])?story_script.blocks[chapter.id][2]:"none" )+";'>"+element+"</div>";
+        chapter.innerHTML="<div style='margin:2px;'><table height='100%' width='100%'><tbody><tr><td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');story_script.blocks['"+chapter.id+"'][2]=((story_script.blocks['"+chapter.id+"'][2]=='none')?'block':'none');\" class='button_block icon icon_more'></td>"+headerIcon+"<td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');\">"+((chapter.id.length>17)?chapter.id.slice(0,15)+"...":chapter.id )+"</td><td align='center' style='cursor:pointer;width:48px;' onmouseup=\"edit_block('"+chapter.id+"')\" class='icon_m button_block icon_edit'></td><td align='center' style='cursor:pointer;' onmouseup=\"play_novel('"+chapter.id+"')\" class='icon_m button_block icon_play'></td><td style='width:8px;'></td> </tr></tbody></table></div><div id='"+chapter.id+"_content' style='display:"+((story_script.blocks[chapter.id])?story_script.blocks[chapter.id][2]:"none" )+";'>"+element+"</div>";
         chapter.className="story_block panel";
         
         // Notify parent when block is focused

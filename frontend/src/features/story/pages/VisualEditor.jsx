@@ -30,7 +30,8 @@ export default function VisualEditor() {
                 },
                 onError: (error) => {
                     console.error('Erreur sauvegarde content :', error);
-                    alert("Erreur : " + error.message);
+                    const backendMsg = error.response?.data?.message || error.message;
+                    alert("Erreur de sauvegarde : " + backendMsg);
                 }
             }
         );
@@ -121,10 +122,17 @@ export default function VisualEditor() {
     };
 
     const handleSaveMiniGame = (gameId, config) => {
-        iframeRef.current?.contentWindow.postMessage({
-            type: 'ADD_MINIGAME_TO_BLOCK',
-            payload: { gameId, config }
-        }, '*');
+        if (iframeRef.current) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'ADD_MINIGAME_TO_BLOCK',
+                payload: { gameId, config }
+            }, '*');
+
+            // Force automatic save of the story JSON to persist the link
+            setTimeout(() => {
+                iframeRef.current.contentWindow.postMessage({ type: 'REQUEST_SAVE' }, '*');
+            }, 500);
+        }
     };
 
     const isPublished = book?.status === 'PUBLISHED';
