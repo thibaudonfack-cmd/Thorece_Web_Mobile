@@ -41,6 +41,8 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                         name: data.name,
                         type: data.type,
                         xpReward: data.xpReward,
+                        successTarget: data.successPageNumber || '',
+                        failTarget: data.failurePageNumber || '',
                         // Restore specific fields
                         solution: parsedContent.solution || '',
                         fullText: parsedContent.fullText || prev.fullText,
@@ -124,7 +126,9 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                 type: config.type,
                 name: config.name,
                 xpReward: parseInt(config.xpReward),
-                contentJson: contentJson
+                contentJson: contentJson,
+                successPageNumber: config.successTarget ? parseInt(config.successTarget) : null,
+                failurePageNumber: config.failTarget ? parseInt(config.failTarget) : null
             };
 
             let savedGame;

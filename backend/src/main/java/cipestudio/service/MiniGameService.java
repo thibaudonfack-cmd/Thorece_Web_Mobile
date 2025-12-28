@@ -41,6 +41,8 @@ public class MiniGameService {
         if (dto.getXpReward() != null) {
             miniGame.setXpReward(dto.getXpReward());
         }
+        miniGame.setSuccessPageNumber(dto.getSuccessPageNumber());
+        miniGame.setFailurePageNumber(dto.getFailurePageNumber());
 
         MiniGame savedGame = miniGameRepository.save(miniGame);
         return miniGameMapper.toDto(savedGame);

@@ -4,6 +4,7 @@ import MiniGameOverlay from '../../minigames/components/MiniGameOverlay';
 export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
     const iframeRef = useRef(null);
     const [miniGameId, setMiniGameId] = useState(null);
+    const [miniGameScenes, setMiniGameScenes] = useState({ success: null, fail: null });
 
     const handleGameComplete = (success, targetScene) => {
         if (iframeRef.current) {
@@ -13,6 +14,7 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
             );
         }
         setMiniGameId(null);
+        setMiniGameScenes({ success: null, fail: null });
     };
 
     useEffect(() => {
@@ -28,6 +30,10 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                 );
             } else if (event.data.type === 'TRIGGER_GAME') {
                 setMiniGameId(event.data.gameId);
+                setMiniGameScenes({
+                    success: event.data.successScene,
+                    fail: event.data.failScene
+                });
             }
         };
 
@@ -77,11 +83,16 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                              if (dialogObj.variables) {
                                  const gameVar = dialogObj.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
                                  if (gameVar) {
-                                     window.parent.postMessage({ 
-                                         type: 'TRIGGER_GAME', 
-                                         gameId: gameVar[2] 
+                                     const successVar = dialogObj.variables.find(function(v) { return v[0] === 'success_target'; });
+                                     const failVar = dialogObj.variables.find(function(v) { return v[0] === 'fail_target'; });
+
+                                     window.parent.postMessage({
+                                         type: 'TRIGGER_GAME',
+                                         gameId: gameVar[2],
+                                         successScene: successVar ? successVar[2] : null,
+                                         failScene: failVar ? failVar[2] : null
                                      }, '*');
-                                     
+
                                      // Pause interactions in the engine
                                      const engineEl = document.getElementById('tuesday');
                                      if (engineEl) engineEl.style.pointerEvents = 'none';
@@ -147,7 +158,12 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
                 sandbox="allow-scripts allow-same-origin"
             />
             {miniGameId && (
-                <MiniGameOverlay id={miniGameId} onComplete={handleGameComplete} />
+                <MiniGameOverlay
+                    id={miniGameId}
+                    successScene={miniGameScenes.success}
+                    failScene={miniGameScenes.fail}
+                    onComplete={handleGameComplete}
+                />
             )}
         </div>
     );

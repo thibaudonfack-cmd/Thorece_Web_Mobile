@@ -18,4 +18,6 @@ public class MiniGameRequestDTO {
 
     private String name;
     private String description;
+    private Integer successPageNumber;
+    private Integer failurePageNumber;
 }

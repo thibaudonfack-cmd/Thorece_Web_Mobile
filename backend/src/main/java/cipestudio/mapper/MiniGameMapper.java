@@ -17,6 +17,8 @@ public class MiniGameMapper {
         if (dto.getXpReward() != null) {
             entity.setXpReward(dto.getXpReward());
         }
+        entity.setSuccessPageNumber(dto.getSuccessPageNumber());
+        entity.setFailurePageNumber(dto.getFailurePageNumber());
         return entity;
     }
 
@@ -27,6 +29,8 @@ public class MiniGameMapper {
         dto.setType(entity.getType());
         dto.setXpReward(entity.getXpReward());
         dto.setContentJson(entity.getContentJson());
+        dto.setSuccessPageNumber(entity.getSuccessPageNumber());
+        dto.setFailurePageNumber(entity.getFailurePageNumber());
         return dto;
     }
 }

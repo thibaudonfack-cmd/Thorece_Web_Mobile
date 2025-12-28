@@ -10,4 +10,6 @@ public class MiniGameResponseDTO {
     private GameType type;
     private Integer xpReward;
     private String contentJson;
+    private Integer successPageNumber;
+    private Integer failurePageNumber;
 }
