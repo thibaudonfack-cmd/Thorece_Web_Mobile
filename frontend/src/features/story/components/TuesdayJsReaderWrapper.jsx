@@ -69,37 +69,64 @@ export default function TuesdayJsReaderWrapper({ storyJson, onQuit }) {
             <div id="tuesday"></div>
             <script src="/tuesday.js"></script>
             <script>
-                // Listen for creation_dialog event to detect game triggers
-                document.addEventListener('creation_dialog', function() {
-                     // Check current scene/dialog variables in engine state
-                     const currentSceneId = window.tue_story;
-                     const sceneIdx = window.scene;
-                     const dialogIdx = window.dialog;
+                // Wait for Tuesday.js to be ready and listen on the tuesday element
+                window.addEventListener('load', function() {
+                    const tuesdayElement = document.getElementById('tuesday');
+                    if (tuesdayElement) {
+                        // Listen for creation_dialog event on tuesday element (not document)
+                        tuesdayElement.addEventListener('creation_dialog', function() {
+                            console.log('🎮 creation_dialog event triggered!');
+                            console.log('Current state:', {
+                                tue_story: window.tue_story,
+                                scene: window.scene,
+                                dialog: window.dialog
+                            });
 
-                     if (window.story_json && window.story_json[currentSceneId] && window.story_json[currentSceneId][sceneIdx]) {
-                         const sceneObj = window.story_json[currentSceneId][sceneIdx];
-                         if (sceneObj.dialogs && sceneObj.dialogs[dialogIdx]) {
-                             const dialogObj = sceneObj.dialogs[dialogIdx];
-                             if (dialogObj.variables) {
-                                 const gameVar = dialogObj.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
-                                 if (gameVar) {
-                                     const successVar = dialogObj.variables.find(function(v) { return v[0] === 'success_target'; });
-                                     const failVar = dialogObj.variables.find(function(v) { return v[0] === 'fail_target'; });
+                            // Check current scene/dialog variables in engine state
+                            const currentSceneId = window.tue_story;
+                            const sceneIdx = window.scene;
+                            const dialogIdx = window.dialog;
 
-                                     window.parent.postMessage({
-                                         type: 'TRIGGER_GAME',
-                                         gameId: gameVar[2],
-                                         successScene: successVar ? successVar[2] : null,
-                                         failScene: failVar ? failVar[2] : null
-                                     }, '*');
+                            if (window.story_json && window.story_json[currentSceneId] && window.story_json[currentSceneId][sceneIdx]) {
+                                const sceneObj = window.story_json[currentSceneId][sceneIdx];
+                                if (sceneObj.dialogs && sceneObj.dialogs[dialogIdx]) {
+                                    const dialogObj = sceneObj.dialogs[dialogIdx];
+                                    console.log('📋 Current dialog:', dialogObj);
 
-                                     // Pause interactions in the engine
-                                     const engineEl = document.getElementById('tuesday');
-                                     if (engineEl) engineEl.style.pointerEvents = 'none';
-                                 }
-                             }
-                         }
-                     }
+                                    if (dialogObj.variables && Array.isArray(dialogObj.variables)) {
+                                        console.log('🔍 Variables found:', dialogObj.variables);
+
+                                        const gameVar = dialogObj.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
+                                        if (gameVar) {
+                                            console.log('🎯 Game trigger found!', gameVar);
+
+                                            const successVar = dialogObj.variables.find(function(v) { return v[0] === 'success_target'; });
+                                            const failVar = dialogObj.variables.find(function(v) { return v[0] === 'fail_target'; });
+
+                                            const gameData = {
+                                                type: 'TRIGGER_GAME',
+                                                gameId: gameVar[2],
+                                                successScene: successVar ? successVar[2] : null,
+                                                failScene: failVar ? failVar[2] : null
+                                            };
+
+                                            console.log('📤 Sending game trigger to parent:', gameData);
+
+                                            window.parent.postMessage(gameData, '*');
+
+                                            // Pause interactions in the engine
+                                            const engineEl = document.getElementById('tuesday');
+                                            if (engineEl) engineEl.style.pointerEvents = 'none';
+                                        } else {
+                                            console.log('❌ No trigger_game_id variable found');
+                                        }
+                                    } else {
+                                        console.log('❌ No variables in dialog');
+                                    }
+                                }
+                            }
+                        });
+                    }
                 });
 
                 window.addEventListener('message', function(event) {
