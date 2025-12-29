@@ -44,7 +44,11 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/auth/register","/auth/verify-otp","/refresh","/auth/login","/auth/forgot-password","/auth/reset-password","/error").permitAll()
-                    .requestMatchers("/api/minigames/**").hasAnyAuthority("SCOPE_ROLE_AUTEUR", "SCOPE_ROLE_EDITEUR", "SCOPE_ROLE_ADMIN")
+                    // Mini-jeux: Lecture (GET) pour tous les utilisateurs authentifiés, Création/Modification (POST/PUT/DELETE) pour AUTEUR/EDITEUR/ADMIN seulement
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/minigames/**").authenticated()
+                    .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/minigames/**").hasAnyAuthority("SCOPE_ROLE_AUTEUR", "SCOPE_ROLE_EDITEUR", "SCOPE_ROLE_ADMIN")
+                    .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/minigames/**").hasAnyAuthority("SCOPE_ROLE_AUTEUR", "SCOPE_ROLE_EDITEUR", "SCOPE_ROLE_ADMIN")
+                    .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/minigames/**").hasAnyAuthority("SCOPE_ROLE_AUTEUR", "SCOPE_ROLE_EDITEUR", "SCOPE_ROLE_ADMIN")
                     .anyRequest().authenticated())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
