@@ -10,18 +10,28 @@ export default function MiniGameOverlay({ id, successScene, failScene, onComplet
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        console.log('🎮 MiniGameOverlay received ID:', id, 'Type:', typeof id);
+        console.log('🎯 Success scene:', successScene, 'Fail scene:', failScene);
+
         if (id) {
             setLoading(true);
+            setError(null);
+
             minigameService.getById(id)
                 .then(data => {
+                    console.log('✅ Game data loaded in overlay:', data);
                     setGameData(data);
                     setError(null);
                 })
                 .catch(err => {
-                    console.error("Failed to load game config:", err);
-                    setError(err.message);
+                    console.error("❌ Failed to load game config in overlay:", err);
+                    setError(err.message || 'Failed to load game');
                 })
                 .finally(() => setLoading(false));
+        } else {
+            console.error('❌ No game ID provided to MiniGameOverlay');
+            setError('No game ID provided');
+            setLoading(false);
         }
     }, [id]);
 
