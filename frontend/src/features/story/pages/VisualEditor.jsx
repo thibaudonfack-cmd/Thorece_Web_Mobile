@@ -12,6 +12,8 @@ export default function VisualEditor() {
     const [isMiniGameModalOpen, setIsMiniGameModalOpen] = useState(false);
     const [storyBlocks, setStoryBlocks] = useState([]);
     const [selectedGameId, setSelectedGameId] = useState(null);
+    const [showMiniGamesPanel, setShowMiniGamesPanel] = useState(false);
+    const [miniGamesInBook, setMiniGamesInBook] = useState([]);
 
     const { data: book } = useBook(storyId);
     const { data: bookContent } = useBookContent(storyId, 'draft');
@@ -55,6 +57,9 @@ export default function VisualEditor() {
             case 'STORY_BLOCKS_LIST':
                 setStoryBlocks(payload);
                 setIsMiniGameModalOpen(true);
+                break;
+            case 'MINIGAMES_LIST':
+                setMiniGamesInBook(payload);
                 break;
             case 'BLOCK_SELECTED':
                 // Check if the selected block has a trigger_game_id variable
@@ -150,9 +155,23 @@ export default function VisualEditor() {
 
                 <div className="flex gap-3">
                     <button
+                        onClick={() => {
+                            setShowMiniGamesPanel(!showMiniGamesPanel);
+                            if (!showMiniGamesPanel) {
+                                // Request list of minigames from iframe
+                                iframeRef.current?.contentWindow.postMessage({ type: 'GET_MINIGAMES_LIST' }, '*');
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 rounded-lg text-sm font-semibold transition-colors"
+                    >
+                        <span className="text-lg">📋</span>
+                        Mini-Jeux ({miniGamesInBook.length})
+                    </button>
+
+                    <button
                         onClick={handleOpenMiniGameModal}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                            selectedGameId 
+                            selectedGameId
                             ? 'bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100'
                             : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100'
                         }`}
@@ -196,7 +215,80 @@ export default function VisualEditor() {
                 />
             </div>
 
-            <MiniGameConfigModal 
+            {/* Mini-Games Overview Panel */}
+            {showMiniGamesPanel && (
+                <div className="fixed top-20 right-4 w-96 max-h-[80vh] bg-white shadow-2xl rounded-lg border-2 border-purple-200 z-50 overflow-hidden flex flex-col">
+                    <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 flex items-center justify-between">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            <span>🎮</span> Mini-Jeux du Livre
+                        </h3>
+                        <button
+                            onClick={() => setShowMiniGamesPanel(false)}
+                            className="text-white hover:bg-white/20 rounded p-1 transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {miniGamesInBook.length === 0 ? (
+                            <div className="text-center text-gray-500 py-8">
+                                <p className="text-4xl mb-2">🎮</p>
+                                <p>Aucun mini-jeu configuré</p>
+                                <p className="text-sm mt-2">Cliquez sur "Ajouter Épreuve" pour commencer</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {miniGamesInBook.map((game, index) => (
+                                    <div
+                                        key={index}
+                                        className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                                        onClick={() => {
+                                            // Navigate to the block in the editor
+                                            iframeRef.current?.contentWindow.postMessage({
+                                                type: 'NAVIGATE_TO_BLOCK',
+                                                payload: { blockId: game.blockId }
+                                            }, '*');
+                                        }}
+                                    >
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-2xl">🎮</span>
+                                                <div>
+                                                    <p className="font-bold text-purple-900">ID: {game.gameId}</p>
+                                                    <p className="text-xs text-gray-600">{game.type || 'Type inconnu'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded p-2 text-sm space-y-1">
+                                            <p className="text-gray-700">
+                                                <span className="font-semibold">Chapitre:</span> {game.blockId}
+                                            </p>
+                                            <p className="text-gray-700">
+                                                <span className="font-semibold">Scène:</span> {game.sceneIndex + 1}
+                                            </p>
+                                            <p className="text-gray-700">
+                                                <span className="font-semibold">Dialogue:</span> {game.dialogIndex + 1}
+                                            </p>
+                                            {game.successTarget && (
+                                                <p className="text-green-700">
+                                                    <span className="font-semibold">✓ Succès →</span> {game.successTarget}
+                                                </p>
+                                            )}
+                                            {game.failTarget && (
+                                                <p className="text-red-700">
+                                                    <span className="font-semibold">✗ Échec →</span> {game.failTarget}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <MiniGameConfigModal
                 isOpen={isMiniGameModalOpen}
                 onClose={() => setIsMiniGameModalOpen(false)}
                 onSave={handleSaveMiniGame}

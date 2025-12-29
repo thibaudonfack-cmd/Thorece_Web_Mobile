@@ -1310,7 +1310,7 @@ function creation_block(b){
         // ADD MINI-GAME INDICATOR TO HEADER
         var headerIcon = "";
         if (hasMiniGame) {
-            headerIcon = "<td align='center' title='Mini-jeu: "+miniGameId+"' style='font-size:18px;width:30px;cursor:pointer;'>🧩</td>";
+            headerIcon = "<td align='center' title='Mini-jeu configuré (ID: "+miniGameId+")' style='font-size:20px;width:35px;cursor:pointer;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:6px;padding:4px;box-shadow:0 2px 4px rgba(0,0,0,0.2);'>🎮</td>";
         }
 
         chapter.innerHTML="<div style='margin:2px;'><table height='100%' width='100%'><tbody><tr><td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');story_script.blocks['"+chapter.id+"'][2]=((story_script.blocks['"+chapter.id+"'][2]=='none')?'block':'none');\" class='button_block icon icon_more'></td>"+headerIcon+"<td align='center' style='cursor:pointer;' onmousedown=\"block_open('"+chapter.id+"_content');\">"+((chapter.id.length>17)?chapter.id.slice(0,15)+"...":chapter.id )+"</td><td align='center' style='cursor:pointer;width:48px;' onmouseup=\"edit_block('"+chapter.id+"')\" class='icon_m button_block icon_edit'></td><td align='center' style='cursor:pointer;' onmouseup=\"play_novel('"+chapter.id+"')\" class='icon_m button_block icon_play'></td><td style='width:8px;'></td> </tr></tbody></table></div><div id='"+chapter.id+"_content' style='display:"+((story_script.blocks[chapter.id])?story_script.blocks[chapter.id][2]:"none" )+";'>"+element+"</div>";
@@ -6459,6 +6459,65 @@ window.addEventListener('message', (event) => {
             } catch (e) {
                 console.error("Error adding minigame:", e);
                 window.parent.postMessage({ type: 'ERROR', payload: { message: "Erreur ajout mini-jeu: " + e.message } }, '*');
+            }
+            break;
+        case 'GET_MINIGAMES_LIST':
+            try {
+                var miniGamesList = [];
+
+                // Iterate through all blocks in the story
+                for (var blockId in story_script) {
+                    if (blockId !== 'parameters' && blockId !== 'blocks' && story_script[blockId]) {
+                        var block = story_script[blockId];
+
+                        // Iterate through scenes
+                        for (var sceneIdx = 0; sceneIdx < block.length; sceneIdx++) {
+                            var scene = block[sceneIdx];
+
+                            if (scene.dialogs) {
+                                // Iterate through dialogs
+                                for (var dialogIdx = 0; dialogIdx < scene.dialogs.length; dialogIdx++) {
+                                    var dialog = scene.dialogs[dialogIdx];
+
+                                    if (dialog.variables) {
+                                        var gameVar = dialog.variables.find(function(v) { return v[0] === 'trigger_game_id'; });
+                                        if (gameVar) {
+                                            var typeVar = dialog.variables.find(function(v) { return v[0] === 'minigame_type'; });
+                                            var successVar = dialog.variables.find(function(v) { return v[0] === 'success_target'; });
+                                            var failVar = dialog.variables.find(function(v) { return v[0] === 'fail_target'; });
+
+                                            miniGamesList.push({
+                                                blockId: blockId,
+                                                sceneIndex: sceneIdx,
+                                                dialogIndex: dialogIdx,
+                                                gameId: gameVar[2],
+                                                type: typeVar ? typeVar[2] : null,
+                                                successTarget: successVar ? successVar[2] : null,
+                                                failTarget: failVar ? failVar[2] : null
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                window.parent.postMessage({ type: 'MINIGAMES_LIST', payload: miniGamesList }, '*');
+            } catch (e) {
+                console.error("Error getting minigames list:", e);
+                window.parent.postMessage({ type: 'ERROR', payload: { message: "Erreur liste mini-jeux: " + e.message } }, '*');
+            }
+            break;
+        case 'NAVIGATE_TO_BLOCK':
+            try {
+                var blockId = payload.blockId;
+                if (blockId && document.getElementById(blockId)) {
+                    go_to_block(blockId);
+                    toast("Navigation vers le bloc: " + blockId);
+                }
+            } catch (e) {
+                console.error("Error navigating to block:", e);
             }
             break;
         default:
