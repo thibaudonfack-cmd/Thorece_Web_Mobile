@@ -1,433 +1,406 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { minigameService } from '../services/minigame.service';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ArrowDownTrayIcon,
-    TrophyIcon,
-    ClockIcon,
-    CheckCircleIcon,
-    XCircleIcon
-} from '@heroicons/react/24/outline';
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { TrophyIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import clsx from 'clsx';
+
+import { minigameService } from '../services/minigame.service';
+import { usePuzzleStore } from '../stores/usePuzzleStore';
+import PuzzlePiece from './PuzzlePiece';
+import VictoryScreen from './VictoryScreen';
+import DefeatScreen from './DefeatScreen';
 
 export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
-    const [status, setStatus] = useState('loading'); // loading, playing, won, lost, error
-    const [puzzleConfig, setPuzzleConfig] = useState(null);
-    const [pieces, setPieces] = useState([]);
-    const [timeLeft, setTimeLeft] = useState(null);
-    const [moves, setMoves] = useState(0);
-    const [selectedPiece, setSelectedPiece] = useState(null);
-    const canvasRef = useRef(null);
-    const victoryCardRef = useRef(null);
+    const {
+        status,
+        puzzleConfig,
+        pieces,
+        timeLeft,
+        moves,
+        selectedPieceId,
+        showVictoryScreen,
+        showDefeatScreen,
+        setPuzzleConfig,
+        setStatus,
+        initializePuzzle,
+        selectPiece,
+        swapPieces,
+        decrementTimer,
+        closeVictoryScreen,
+        closeDefeatScreen,
+        reset,
+    } = usePuzzleStore();
 
-    // Load game configuration
+    const [localPieces, setLocalPieces] = useState([]);
+
+    // Configuration des capteurs pour le drag and drop
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 200,
+                tolerance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    // Charger la configuration du jeu
     useEffect(() => {
         if (gameId) {
-            minigameService.getById(gameId)
-                .then(data => {
+            minigameService
+                .getById(gameId)
+                .then((data) => {
                     try {
                         const config = JSON.parse(data.contentJson);
-                        setPuzzleConfig({
+                        const fullConfig = {
                             ...config,
                             gridSize: config.gridSize || 3,
                             imageUrl: config.imageUrl || '/default-puzzle.jpg',
                             timeLimit: config.timeLimit || null,
-                            instructionText: config.instructionText || 'Assemblez les pièces du puzzle!'
-                        });
-
-                        if (config.timeLimit) {
-                            setTimeLeft(config.timeLimit);
-                        }
-
-                        setStatus('playing');
+                            instructionText:
+                                config.instructionText || 'Assemblez les pièces du puzzle!',
+                        };
+                        setPuzzleConfig(fullConfig);
+                        initializePuzzle(fullConfig);
                     } catch (e) {
-                        console.error("Invalid game config JSON", e);
+                        console.error('Invalid game config JSON', e);
                         setStatus('error');
                     }
                 })
-                .catch(err => {
-                    console.error("Failed to load game", err);
+                .catch((err) => {
+                    console.error('Failed to load game', err);
                     setStatus('error');
                 });
-        } else {
-            // Fallback for dev/testing
-            setPuzzleConfig({
-                gridSize: 3,
-                imageUrl: '/default-puzzle.jpg',
-                timeLimit: null,
-                instructionText: 'Assemblez les pièces du puzzle!'
-            });
-            setStatus('playing');
         }
+
+        return () => reset();
     }, [gameId]);
 
-    // Initialize puzzle pieces
+    // Synchroniser les pièces locales avec le store
     useEffect(() => {
-        if (puzzleConfig && status === 'playing') {
-            const { gridSize } = puzzleConfig;
-            const totalPieces = gridSize * gridSize;
+        setLocalPieces(pieces);
+    }, [pieces]);
 
-            // Create ordered array
-            const orderedPieces = Array.from({ length: totalPieces }, (_, i) => ({
-                id: i,
-                currentIndex: i,
-                correctIndex: i
-            }));
-
-            // Shuffle pieces (Fisher-Yates algorithm)
-            const shuffled = [...orderedPieces];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i].currentIndex, shuffled[j].currentIndex] =
-                [shuffled[j].currentIndex, shuffled[i].currentIndex];
-            }
-
-            // Ensure puzzle is solvable and not already solved
-            let attempts = 0;
-            while (isSolved(shuffled) && attempts < 10) {
-                const i = Math.floor(Math.random() * shuffled.length);
-                const j = Math.floor(Math.random() * shuffled.length);
-                if (i !== j) {
-                    [shuffled[i].currentIndex, shuffled[j].currentIndex] =
-                    [shuffled[j].currentIndex, shuffled[i].currentIndex];
-                }
-                attempts++;
-            }
-
-            setPieces(shuffled);
-        }
-    }, [puzzleConfig, status]);
-
-    // Timer countdown
+    // Timer
     useEffect(() => {
         if (status === 'playing' && timeLeft !== null && timeLeft > 0) {
             const timer = setTimeout(() => {
-                setTimeLeft(prev => prev - 1);
+                decrementTimer();
             }, 1000);
-
             return () => clearTimeout(timer);
-        } else if (timeLeft === 0 && status === 'playing') {
-            setStatus('lost');
-            setTimeout(onLose, 2000);
         }
-    }, [timeLeft, status, onLose]);
+    }, [timeLeft, status]);
 
-    // Check if puzzle is solved
-    const isSolved = (piecesArray = pieces) => {
-        return piecesArray.every(piece => piece.currentIndex === piece.correctIndex);
-    };
+    // Gérer le drag end
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
 
-    // Handle piece selection and swapping
-    const handlePieceClick = (piece) => {
-        if (status !== 'playing') return;
+        if (over && active.id !== over.id) {
+            const oldIndex = localPieces.findIndex((p) => p.id === active.id);
+            const newIndex = localPieces.findIndex((p) => p.id === over.id);
 
-        if (!selectedPiece) {
-            // First piece selected
-            setSelectedPiece(piece);
-        } else if (selectedPiece.id === piece.id) {
-            // Deselect if clicking same piece
-            setSelectedPiece(null);
-        } else {
-            // Swap pieces
-            setPieces(prevPieces => {
-                const newPieces = prevPieces.map(p => {
-                    if (p.id === selectedPiece.id) {
-                        return { ...p, currentIndex: piece.currentIndex };
-                    }
-                    if (p.id === piece.id) {
-                        return { ...p, currentIndex: selectedPiece.currentIndex };
-                    }
-                    return p;
-                });
+            const newPieces = arrayMove(localPieces, oldIndex, newIndex);
+            setLocalPieces(newPieces);
 
-                setMoves(prev => prev + 1);
-                setSelectedPiece(null);
-
-                // Check if solved
-                if (isSolved(newPieces)) {
-                    setStatus('won');
-                    setTimeout(() => {
-                        generateVictoryCard();
-                        setTimeout(onWin, 3000);
-                    }, 500);
-                }
-
-                return newPieces;
-            });
+            // Mettre à jour le store
+            swapPieces(active.id, over.id);
         }
     };
 
-    // Generate victory card
-    const generateVictoryCard = () => {
-        if (!canvasRef.current || !puzzleConfig) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-
-        // Set canvas size
-        canvas.width = 600;
-        canvas.height = 800;
-
-        // Background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#7c3aed'); // purple-600
-        gradient.addColorStop(1, '#4f46e5'); // indigo-600
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Decorative border
-        ctx.strokeStyle = '#fbbf24'; // amber-400
-        ctx.lineWidth = 8;
-        ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-
-        // Title
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 48px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🏆 VICTOIRE! 🏆', canvas.width / 2, 100);
-
-        // Subtitle
-        ctx.font = '32px serif';
-        ctx.fillText('Puzzle Complété', canvas.width / 2, 160);
-
-        // Stats box
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.roundRect(50, 200, canvas.width - 100, 180, 20);
-        ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '28px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`📊 Mouvements: ${moves}`, 80, 250);
-        ctx.fillText(`⏱️ Temps: ${formatTime(puzzleConfig.timeLimit - (timeLeft || 0))}`, 80, 300);
-        ctx.fillText(`🧩 Difficulté: ${puzzleConfig.gridSize}x${puzzleConfig.gridSize}`, 80, 350);
-
-        // Load and draw completed image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            const imgSize = 400;
-            const imgX = (canvas.width - imgSize) / 2;
-            const imgY = 420;
-
-            // Shadow
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-            ctx.shadowBlur = 20;
-            ctx.shadowOffsetY = 10;
-
-            ctx.drawImage(img, imgX, imgY, imgSize, imgSize);
-
-            // Reset shadow
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetY = 0;
-
-            // Border around image
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 6;
-            ctx.strokeRect(imgX, imgY, imgSize, imgSize);
-
-            // Footer
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '20px serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Cipe Studio - ' + new Date().toLocaleDateString(), canvas.width / 2, canvas.height - 40);
-        };
-        img.src = puzzleConfig.imageUrl;
+    const handlePieceClick = (pieceId) => {
+        selectPiece(pieceId);
     };
 
-    // Download victory card
-    const downloadVictoryCard = () => {
-        if (!canvasRef.current) return;
-
-        const link = document.createElement('a');
-        link.download = `puzzle-victory-${Date.now()}.png`;
-        link.href = canvasRef.current.toDataURL();
-        link.click();
+    const handleVictoryContinue = () => {
+        closeVictoryScreen();
+        setTimeout(() => {
+            onWin();
+        }, 300);
     };
 
-    // Format time helper
+    const handleDefeatContinue = () => {
+        closeDefeatScreen();
+        setTimeout(() => {
+            onLose();
+        }, 300);
+    };
+
+    const handleRetry = () => {
+        if (puzzleConfig) {
+            initializePuzzle(puzzleConfig);
+        }
+    };
+
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Get piece position in grid
-    const getPiecePosition = (index) => {
-        const { gridSize } = puzzleConfig;
-        const row = Math.floor(index / gridSize);
-        const col = index % gridSize;
-        return { row, col };
-    };
-
     if (status === 'loading') {
         return (
-            <div className="text-white text-center p-8 flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <p>Chargement du puzzle...</p>
-            </div>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center p-8 gap-4"
+            >
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full"
+                />
+                <p className="text-white text-lg font-semibold">Chargement du puzzle...</p>
+            </motion.div>
         );
     }
 
     if (status === 'error') {
         return (
-            <div className="text-red-500 text-center p-8 flex flex-col items-center gap-4">
-                <XCircleIcon className="w-12 h-12" />
-                <p>Impossible de charger le puzzle</p>
-            </div>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center justify-center p-8 gap-4 text-red-500"
+            >
+                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <span className="text-4xl">⚠️</span>
+                </div>
+                <p className="text-lg font-semibold">Impossible de charger le puzzle</p>
+            </motion.div>
         );
     }
 
     if (!puzzleConfig) return null;
 
     const { gridSize, imageUrl, instructionText } = puzzleConfig;
-    const pieceSize = 100; // Base size, will be scaled with CSS
+    const pieceSize = 100;
 
     return (
-        <div className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-xl shadow-2xl max-w-4xl mx-auto relative overflow-hidden min-h-[600px]">
-            {/* Animated background */}
-            <div className="absolute inset-0 opacity-10">
-                <div className="absolute w-64 h-64 bg-purple-500 rounded-full blur-3xl animate-pulse" style={{ top: '10%', left: '10%' }}></div>
-                <div className="absolute w-64 h-64 bg-blue-500 rounded-full blur-3xl animate-pulse" style={{ bottom: '10%', right: '10%', animationDelay: '1s' }}></div>
-            </div>
-
-            {/* Header */}
-            <div className="relative z-10 w-full mb-6">
-                <h2 className="text-white font-serif text-3xl mb-2 text-center tracking-wide">
-                    🧩 Puzzle Visuel
-                </h2>
-                <p className="text-purple-200 text-center text-sm max-w-md mx-auto">
-                    {instructionText}
-                </p>
-            </div>
-
-            {/* Stats Bar */}
-            <div className="relative z-10 w-full mb-6 flex justify-around items-center bg-black/30 backdrop-blur-sm rounded-lg p-4">
-                <div className="flex items-center gap-2 text-amber-400">
-                    <TrophyIcon className="w-6 h-6" />
-                    <span className="font-bold">{moves} coups</span>
-                </div>
-
-                {timeLeft !== null && (
-                    <div className={`flex items-center gap-2 ${timeLeft < 30 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`}>
-                        <ClockIcon className="w-6 h-6" />
-                        <span className="font-mono font-bold text-lg">{formatTime(timeLeft)}</span>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-2 text-purple-300">
-                    <span className="text-sm">Difficulté:</span>
-                    <span className="font-bold">{gridSize}x{gridSize}</span>
-                </div>
-            </div>
-
-            {/* Puzzle Grid */}
-            <div
-                className="relative z-10 bg-black/20 backdrop-blur-sm rounded-lg p-4 mb-6"
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${gridSize}, ${pieceSize}px)`,
-                    gridTemplateRows: `repeat(${gridSize}, ${pieceSize}px)`,
-                    gap: '4px'
-                }}
+        <>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="relative flex flex-col items-center justify-center p-6 bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-3xl shadow-2xl max-w-5xl mx-auto overflow-hidden min-h-[700px]"
             >
-                {pieces
-                    .sort((a, b) => a.currentIndex - b.currentIndex)
-                    .map((piece) => {
-                        const { row, col } = getPiecePosition(piece.correctIndex);
-                        const isSelected = selectedPiece?.id === piece.id;
-                        const isCorrect = piece.currentIndex === piece.correctIndex;
+                {/* Animated background blobs */}
+                <div className="absolute inset-0 opacity-20 pointer-events-none">
+                    <motion.div
+                        className="absolute w-96 h-96 bg-purple-500 rounded-full blur-3xl"
+                        animate={{
+                            x: [0, 100, 0],
+                            y: [0, -100, 0],
+                            scale: [1, 1.2, 1],
+                        }}
+                        transition={{
+                            duration: 8,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                        }}
+                        style={{ top: '10%', left: '10%' }}
+                    />
+                    <motion.div
+                        className="absolute w-96 h-96 bg-blue-500 rounded-full blur-3xl"
+                        animate={{
+                            x: [0, -100, 0],
+                            y: [0, 100, 0],
+                            scale: [1, 1.3, 1],
+                        }}
+                        transition={{
+                            duration: 10,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                            delay: 1,
+                        }}
+                        style={{ bottom: '10%', right: '10%' }}
+                    />
+                </div>
 
-                        return (
-                            <div
-                                key={piece.id}
-                                onClick={() => handlePieceClick(piece)}
-                                className={`
-                                    cursor-pointer transition-all duration-200
-                                    ${isSelected ? 'ring-4 ring-yellow-400 scale-105 z-10' : ''}
-                                    ${isCorrect && status === 'won' ? 'ring-2 ring-green-400' : ''}
-                                    hover:scale-105 hover:shadow-lg
-                                `}
-                                style={{
-                                    width: `${pieceSize}px`,
-                                    height: `${pieceSize}px`,
-                                    backgroundImage: `url(${imageUrl})`,
-                                    backgroundSize: `${gridSize * pieceSize}px ${gridSize * pieceSize}px`,
-                                    backgroundPosition: `-${col * pieceSize}px -${row * pieceSize}px`,
-                                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                                    borderRadius: '4px',
-                                    boxShadow: isSelected ? '0 8px 16px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.2)'
-                                }}
-                            />
-                        );
-                    })}
-            </div>
+                {/* Header */}
+                <motion.div
+                    initial={{ y: -50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="relative z-10 w-full mb-6 text-center"
+                >
+                    <h2 className="text-white font-serif text-4xl mb-3 tracking-wide flex items-center justify-center gap-3">
+                        <SparklesIcon className="w-10 h-10 text-amber-400" />
+                        Puzzle Visuel
+                        <SparklesIcon className="w-10 h-10 text-amber-400" />
+                    </h2>
+                    <p className="text-purple-200 text-lg max-w-2xl mx-auto px-4">
+                        {instructionText}
+                    </p>
+                </motion.div>
 
-            {/* Victory Overlay */}
-            {status === 'won' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md z-50 animate-fade-in">
-                    {/* Confetti effect */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        {[...Array(50)].map((_, i) => (
-                            <div
-                                key={i}
-                                className="absolute w-3 h-3 bg-yellow-400 rounded-full animate-bounce"
-                                style={{
-                                    left: `${Math.random() * 100}%`,
-                                    top: `-20px`,
-                                    animationDelay: `${Math.random() * 2}s`,
-                                    animationDuration: `${2 + Math.random() * 2}s`
-                                }}
-                            />
-                        ))}
-                    </div>
-
-                    <div className="relative z-10 text-center space-y-6">
-                        <div className="flex items-center gap-4 text-green-400 animate-bounce">
-                            <CheckCircleIcon className="w-16 h-16" />
-                            <h3 className="text-6xl font-bold">BRAVO!</h3>
-                            <CheckCircleIcon className="w-16 h-16" />
+                {/* Stats Bar */}
+                <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="relative z-10 w-full mb-8 flex flex-wrap justify-center items-center gap-4 bg-black/40 backdrop-blur-md rounded-2xl p-4 shadow-xl"
+                >
+                    <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 rounded-xl shadow-lg"
+                    >
+                        <TrophyIcon className="w-6 h-6 text-white" />
+                        <div className="text-left">
+                            <p className="text-xs text-amber-100">Mouvements</p>
+                            <p className="text-2xl font-bold text-white">{moves}</p>
                         </div>
+                    </motion.div>
 
-                        <p className="text-2xl text-white">Puzzle résolu en {moves} coups!</p>
-
-                        <div className="bg-white/10 rounded-lg p-6 backdrop-blur-sm">
-                            {/* Victory card preview */}
-                            <canvas ref={canvasRef} className="hidden" />
-                            {canvasRef.current && (
-                                <button
-                                    onClick={downloadVictoryCard}
-                                    className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg font-bold hover:from-amber-600 hover:to-yellow-600 transition-all shadow-lg hover:shadow-xl"
-                                >
-                                    <ArrowDownTrayIcon className="w-6 h-6" />
-                                    Télécharger la carte de victoire
-                                </button>
+                    {timeLeft !== null && (
+                        <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            animate={
+                                timeLeft < 30
+                                    ? {
+                                          scale: [1, 1.05, 1],
+                                          backgroundColor: ['rgba(239, 68, 68, 0.9)', 'rgba(220, 38, 38, 0.9)', 'rgba(239, 68, 68, 0.9)'],
+                                      }
+                                    : {}
+                            }
+                            transition={timeLeft < 30 ? { duration: 1, repeat: Infinity } : {}}
+                            className={clsx(
+                                'flex items-center gap-3 px-6 py-3 rounded-xl shadow-lg',
+                                timeLeft < 30
+                                    ? 'bg-gradient-to-r from-red-500 to-red-600'
+                                    : 'bg-gradient-to-r from-blue-500 to-indigo-500'
                             )}
-                        </div>
+                        >
+                            <ClockIcon className="w-6 h-6 text-white" />
+                            <div className="text-left">
+                                <p className="text-xs text-blue-100">Temps restant</p>
+                                <p className="text-2xl font-mono font-bold text-white">
+                                    {formatTime(timeLeft)}
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
 
-                        {/* Show complete image */}
-                        <div className="mt-6">
-                            <img
-                                src={imageUrl}
-                                alt="Puzzle complété"
-                                className="max-w-md mx-auto rounded-lg shadow-2xl border-4 border-amber-400"
-                            />
+                    <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 rounded-xl shadow-lg"
+                    >
+                        <span className="text-3xl">🧩</span>
+                        <div className="text-left">
+                            <p className="text-xs text-purple-100">Difficulté</p>
+                            <p className="text-2xl font-bold text-white">{gridSize}x{gridSize}</p>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                </motion.div>
 
-            {/* Defeat Overlay */}
-            {status === 'lost' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
-                    <div className="text-center space-y-4">
-                        <div className="text-red-500 animate-pulse">
-                            <XCircleIcon className="w-16 h-16 mx-auto" />
-                        </div>
-                        <h3 className="text-3xl font-bold text-white">Temps écoulé!</h3>
-                        <p className="text-gray-300">Essayez à nouveau pour résoudre le puzzle</p>
+                {/* Puzzle Grid avec DndContext */}
+                <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.6, type: 'spring' }}
+                    className="relative z-10 mb-8"
+                >
+                    <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={localPieces.map((p) => p.id)}
+                                strategy={rectSortingStrategy}
+                            >
+                                <div
+                                    className="grid gap-2"
+                                    style={{
+                                        gridTemplateColumns: `repeat(${gridSize}, ${pieceSize}px)`,
+                                        gridTemplateRows: `repeat(${gridSize}, ${pieceSize}px)`,
+                                    }}
+                                >
+                                    {localPieces
+                                        .sort((a, b) => a.currentIndex - b.currentIndex)
+                                        .map((piece) => (
+                                            <PuzzlePiece
+                                                key={piece.id}
+                                                piece={piece}
+                                                gridSize={gridSize}
+                                                imageUrl={imageUrl}
+                                                isSelected={selectedPieceId === piece.id}
+                                                isCorrect={piece.currentIndex === piece.correctIndex}
+                                                onClick={() => handlePieceClick(piece.id)}
+                                                pieceSize={pieceSize}
+                                            />
+                                        ))}
+                                </div>
+                            </SortableContext>
+                        </DndContext>
                     </div>
-                </div>
-            )}
-        </div>
+                </motion.div>
+
+                {/* Hint: Image preview miniature */}
+                <motion.div
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="relative z-10"
+                >
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 shadow-xl">
+                        <p className="text-white text-sm mb-2 text-center font-semibold">
+                            💡 Aperçu
+                        </p>
+                        <img
+                            src={imageUrl}
+                            alt="Aperçu du puzzle"
+                            className="w-32 h-32 object-cover rounded-lg border-2 border-white/30 shadow-lg"
+                        />
+                    </div>
+                </motion.div>
+            </motion.div>
+
+            {/* Victory Screen */}
+            <AnimatePresence>
+                {showVictoryScreen && (
+                    <VictoryScreen
+                        moves={moves}
+                        timeLimit={puzzleConfig.timeLimit}
+                        timeLeft={timeLeft}
+                        gridSize={gridSize}
+                        imageUrl={imageUrl}
+                        onContinue={handleVictoryContinue}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Defeat Screen */}
+            <AnimatePresence>
+                {showDefeatScreen && (
+                    <DefeatScreen
+                        reason="timeout"
+                        moves={moves}
+                        onRetry={handleRetry}
+                        onContinue={handleDefeatContinue}
+                    />
+                )}
+            </AnimatePresence>
+        </>
     );
 }
