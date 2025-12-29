@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DigicodeGame from './DigicodeGame';
 import DragDropGame from './DragDropGame';
 import ImagePuzzleGame from './ImagePuzzleGame';
+import MemoryGame from './MemoryGame';
 import { authService } from '../../auth/services/auth.service';
 import { minigameService } from '../services/minigame.service';
 
@@ -88,6 +89,9 @@ export default function MiniGameOverlay({ id, successScene, failScene, onComplet
             break;
         case 'FILL_BLANKS':
             GameComponent = DragDropGame;
+            break;
+        case 'MEMORY':
+            GameComponent = MemoryGame;
             break;
         default:
             return (

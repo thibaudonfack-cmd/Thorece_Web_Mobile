@@ -3,7 +3,8 @@ import { minigameService } from '../services/minigame.service';
 
 const GAME_TYPES = [
     { value: 'IMAGE_PUZZLE', label: '🧩 Puzzle Visuel' },
-    { value: 'FILL_BLANKS', label: '📝 Grimoire Perdu (Texte à trous)' }
+    { value: 'FILL_BLANKS', label: '📝 Grimoire Perdu (Texte à trous)' },
+    { value: 'MEMORY', label: '🧠 Jeu de Paires (Memory)' }
 ];
 
 export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBlocks, existingId = null }) {
@@ -24,7 +25,13 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
         imageUrl: '',
         gridSize: 3,
         timeLimit: 0,
-        instructionText: 'Assemblez les pièces pour révéler l\'image mystère!'
+        instructionText: 'Assemblez les pièces pour révéler l\'image mystère!',
+
+        // Fields for MEMORY
+        imagePairs: [],
+        memoryGridSize: 4,
+        memoryTimeLimit: 0,
+        memoryInstructionText: 'Trouvez toutes les paires d\'images identiques!'
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -59,7 +66,12 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                         imageUrl: parsedContent.imageUrl || '',
                         gridSize: parsedContent.gridSize || 3,
                         timeLimit: parsedContent.timeLimit || 0,
-                        instructionText: parsedContent.instructionText || prev.instructionText
+                        instructionText: parsedContent.instructionText || prev.instructionText,
+                        // MEMORY fields
+                        imagePairs: parsedContent.imagePairs || [],
+                        memoryGridSize: parsedContent.gridSize || 4,
+                        memoryTimeLimit: parsedContent.timeLimit || 0,
+                        memoryInstructionText: parsedContent.instructionText || prev.memoryInstructionText
                     }));
                 })
                 .catch(err => setError("Impossible de charger le jeu : " + err.message))
@@ -79,7 +91,11 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                 imageUrl: '',
                 gridSize: 3,
                 timeLimit: 0,
-                instructionText: 'Assemblez les pièces pour révéler l\'image mystère!'
+                instructionText: 'Assemblez les pièces pour révéler l\'image mystère!',
+                imagePairs: [],
+                memoryGridSize: 4,
+                memoryTimeLimit: 0,
+                memoryInstructionText: 'Trouvez toutes les paires d\'images identiques!'
             });
         }
     }, [isOpen, existingId]);
@@ -148,6 +164,42 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
         }
     };
 
+    const handleMemoryImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setError('Veuillez sélectionner une image valide');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            setError('L\'image ne doit pas dépasser 5 MB');
+            return;
+        }
+
+        setUploadingImage(true);
+        setError(null);
+
+        try {
+            const imageUrl = await minigameService.uploadPuzzleImage(file);
+            setConfig({...config, imagePairs: [...config.imagePairs, imageUrl]});
+        } catch (err) {
+            setError('Erreur lors de l\'upload de l\'image: ' + err.message);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const removeMemoryImage = (index) => {
+        setConfig({
+            ...config,
+            imagePairs: config.imagePairs.filter((_, i) => i !== index)
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -157,6 +209,13 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
             // Validation for IMAGE_PUZZLE
             if (config.type === 'IMAGE_PUZZLE' && !config.imageUrl) {
                 setError('Veuillez uploader une image pour le puzzle');
+                setLoading(false);
+                return;
+            }
+
+            // Validation for MEMORY
+            if (config.type === 'MEMORY' && config.imagePairs.length === 0) {
+                setError('Veuillez uploader au moins une image pour le jeu de mémoire');
                 setLoading(false);
                 return;
             }
@@ -177,6 +236,13 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                     gridSize: parseInt(config.gridSize),
                     timeLimit: parseInt(config.timeLimit) || null,
                     instructionText: config.instructionText
+                });
+            } else if (config.type === 'MEMORY') {
+                contentJson = JSON.stringify({
+                    imagePairs: config.imagePairs,
+                    gridSize: parseInt(config.memoryGridSize),
+                    timeLimit: parseInt(config.memoryTimeLimit) || null,
+                    instructionText: config.memoryInstructionText
                 });
             }
 
@@ -372,7 +438,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                                 className="w-full border rounded-md p-2 mb-4"
                                 rows={2}
                             />
-                            
+
                             <label className="block text-sm font-medium text-purple-900 mb-2">
                                 2. Cliquez sur les mots à cacher
                             </label>
@@ -388,6 +454,126 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                                 className="w-full border rounded-md p-2"
                                 placeholder="tarte, chaussette, dragon"
                             />
+                        </div>
+                    )}
+
+                    {config.type === 'MEMORY' && (
+                        <div className="border border-pink-200 rounded p-4 bg-gradient-to-br from-pink-50 to-purple-50 space-y-4">
+                            <h3 className="text-lg font-bold text-pink-900 mb-3">⚙️ Configuration du Jeu de Paires</h3>
+
+                            <div>
+                                <label className="block text-sm font-medium text-pink-900 mb-1">
+                                    🖼️ Images pour les paires
+                                </label>
+                                <div className="mb-3">
+                                    <label className="cursor-pointer">
+                                        <div className="w-full border-2 border-dashed border-pink-300 rounded-md p-4 hover:border-pink-500 hover:bg-pink-50 transition-colors text-center">
+                                            {uploadingImage ? (
+                                                <span className="text-pink-600">📤 Upload en cours...</span>
+                                            ) : (
+                                                <span className="text-pink-600">📁 Cliquer pour ajouter une image</span>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleMemoryImageUpload}
+                                            className="hidden"
+                                            disabled={uploadingImage}
+                                        />
+                                    </label>
+                                </div>
+                                <p className="text-xs text-pink-600 mb-3">
+                                    💡 Conseil: Ajoutez des images variées et attractives. Chaque image sera dupliquée pour créer une paire (max 5 MB par image)
+                                </p>
+
+                                {/* Image Gallery */}
+                                {config.imagePairs.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-3 p-3 bg-white rounded-lg border-2 border-pink-300">
+                                        {config.imagePairs.map((imageUrl, index) => (
+                                            <div key={index} className="relative group">
+                                                <img
+                                                    src={imageUrl}
+                                                    alt={`Paire ${index + 1}`}
+                                                    className="w-full h-24 object-cover rounded border-2 border-pink-200"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMemoryImage(index)}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                    title="Supprimer cette image"
+                                                >
+                                                    ×
+                                                </button>
+                                                <div className="absolute bottom-1 left-1 bg-pink-600 text-white text-xs px-2 py-1 rounded">
+                                                    Paire {index + 1}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {config.imagePairs.length > 0 && (
+                                    <p className="text-xs text-pink-700 mt-2">
+                                        ✅ {config.imagePairs.length} paire{config.imagePairs.length > 1 ? 's' : ''} ({config.imagePairs.length * 2} cartes)
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-pink-900 mb-1">
+                                    🎚️ Taille de la grille
+                                </label>
+                                <select
+                                    value={config.memoryGridSize}
+                                    onChange={e => setConfig({...config, memoryGridSize: e.target.value})}
+                                    className="w-full border border-pink-300 rounded-md p-2 bg-white"
+                                >
+                                    <option value={3}>3x3 - Facile (4-5 paires) - 6-8 ans</option>
+                                    <option value={4}>4x4 - Moyen (8 paires) - 9-12 ans</option>
+                                    <option value={5}>5x5 - Difficile (12-13 paires) - 13+ ans</option>
+                                </select>
+                                <p className="text-xs text-pink-600 mt-1">
+                                    💡 Assurez-vous d'avoir le bon nombre d'images pour remplir la grille
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-pink-900 mb-1">
+                                    ⏱️ Temps limite (secondes) - Optionnel
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={config.memoryTimeLimit}
+                                    onChange={e => setConfig({...config, memoryTimeLimit: e.target.value})}
+                                    className="w-full border border-pink-300 rounded-md p-2"
+                                    placeholder="0 = illimité"
+                                />
+                                <p className="text-xs text-pink-600 mt-1">
+                                    ⚠️ Laissez 0 pour un jeu sans limite de temps
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-pink-900 mb-1">
+                                    📝 Texte d'instruction (3 phrases max)
+                                </label>
+                                <textarea
+                                    value={config.memoryInstructionText}
+                                    onChange={e => setConfig({...config, memoryInstructionText: e.target.value})}
+                                    className="w-full border border-pink-300 rounded-md p-2"
+                                    rows={2}
+                                    maxLength={200}
+                                    placeholder="Trouvez toutes les paires d'images identiques!"
+                                />
+                                <p className="text-xs text-pink-600 mt-1">
+                                    {config.memoryInstructionText.length}/200 caractères
+                                </p>
+                            </div>
                         </div>
                     )}
 
