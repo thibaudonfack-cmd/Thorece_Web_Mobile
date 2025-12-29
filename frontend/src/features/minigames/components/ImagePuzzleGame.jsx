@@ -152,12 +152,6 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
         }, 300);
     };
 
-    const handleRetry = () => {
-        if (puzzleConfig) {
-            initializePuzzle(puzzleConfig);
-        }
-    };
-
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -402,7 +396,6 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
                     <DefeatScreen
                         reason="timeout"
                         moves={moves}
-                        onRetry={handleRetry}
                         onContinue={handleDefeatContinue}
                     />
                 )}

@@ -1,8 +1,30 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { XCircleIcon, ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
-export default function DefeatScreen({ reason = 'timeout', moves, onRetry, onContinue }) {
+export default function DefeatScreen({ reason = 'timeout', moves, onContinue }) {
+    const [countdown, setCountdown] = useState(4);
+
+    // Redirection automatique après 4 secondes
+    useEffect(() => {
+        // Démarrer le compte à rebours
+        const timer = setInterval(() => {
+            setCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    // Rediriger automatiquement
+                    setTimeout(() => {
+                        onContinue();
+                    }, 100);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [onContinue]);
+
     const getReasonMessage = () => {
         switch (reason) {
             case 'timeout':
@@ -104,45 +126,55 @@ export default function DefeatScreen({ reason = 'timeout', moves, onRetry, onCon
                     </motion.div>
                 )}
 
-                {/* Encouragement */}
+                {/* Message de redirection automatique */}
                 <motion.div
                     initial={{ y: 30, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.8 }}
-                    className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6 mb-8"
+                    className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-2xl p-6 mb-8 text-center"
                 >
-                    <div className="flex items-start gap-3">
-                        <div className="text-3xl">💡</div>
-                        <div>
-                            <p className="font-semibold text-blue-900 mb-2">Conseil</p>
-                            <p className="text-blue-800">
-                                Observez bien l'image complète avant de commencer.
-                                Commencez par les coins et les bords pour avoir des repères !
-                            </p>
-                        </div>
+                    <div className="mb-4">
+                        <motion.div
+                            animate={{
+                                scale: [1, 1.1, 1],
+                            }}
+                            transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                            }}
+                            className="text-5xl mb-3"
+                        >
+                            ⏱️
+                        </motion.div>
+                        <p className="text-lg font-semibold text-orange-900 mb-2">
+                            L'histoire continue dans
+                        </p>
+                        <motion.div
+                            key={countdown}
+                            initial={{ scale: 1.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600"
+                        >
+                            {countdown}
+                        </motion.div>
+                        <p className="text-sm text-orange-700 mt-2">
+                            seconde{countdown > 1 ? 's' : ''}
+                        </p>
                     </div>
                 </motion.div>
 
-                {/* Actions */}
+                {/* Action - Un seul bouton pour continuer maintenant */}
                 <motion.div
                     initial={{ y: 50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 1 }}
-                    className="flex flex-col sm:flex-row gap-4 justify-center"
+                    className="flex justify-center"
                 >
                     <button
-                        onClick={onRetry}
-                        className="flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 transform"
-                    >
-                        <ArrowPathIcon className="w-6 h-6" />
-                        Réessayer
-                    </button>
-
-                    <button
                         onClick={onContinue}
-                        className="px-8 py-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl font-bold hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 transform"
+                        className="px-10 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 transform"
                     >
-                        Continuer sans résoudre
+                        Continuer l'histoire maintenant →
                     </button>
                 </motion.div>
 
