@@ -28,6 +28,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
 
     // Load existing data when modal opens with an ID
     useEffect(() => {
@@ -118,12 +119,48 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
         );
     };
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setError('Veuillez sélectionner une image valide');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            setError('L\'image ne doit pas dépasser 5 MB');
+            return;
+        }
+
+        setUploadingImage(true);
+        setError(null);
+
+        try {
+            const imageUrl = await minigameService.uploadPuzzleImage(file);
+            setConfig({...config, imageUrl});
+        } catch (err) {
+            setError('Erreur lors de l\'upload de l\'image: ' + err.message);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         try {
+            // Validation for IMAGE_PUZZLE
+            if (config.type === 'IMAGE_PUZZLE' && !config.imageUrl) {
+                setError('Veuillez uploader une image pour le puzzle');
+                setLoading(false);
+                return;
+            }
+
             let contentJson = "";
 
             if (config.type === 'DIGITAL_LOCK') {
@@ -215,18 +252,30 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
 
                             <div>
                                 <label className="block text-sm font-medium text-purple-900 mb-1">
-                                    🖼️ URL de l'image
+                                    🖼️ Image du puzzle
                                 </label>
-                                <input
-                                    type="url"
-                                    value={config.imageUrl}
-                                    onChange={e => setConfig({...config, imageUrl: e.target.value})}
-                                    className="w-full border border-purple-300 rounded-md p-2"
-                                    placeholder="https://example.com/image.jpg"
-                                    required
-                                />
+                                <div className="flex items-center gap-2">
+                                    <label className="flex-1 cursor-pointer">
+                                        <div className="w-full border-2 border-dashed border-purple-300 rounded-md p-4 hover:border-purple-500 hover:bg-purple-50 transition-colors text-center">
+                                            {uploadingImage ? (
+                                                <span className="text-purple-600">📤 Upload en cours...</span>
+                                            ) : config.imageUrl ? (
+                                                <span className="text-green-600">✅ Image chargée - Cliquer pour changer</span>
+                                            ) : (
+                                                <span className="text-purple-600">📁 Cliquer pour sélectionner une image</span>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                            disabled={uploadingImage}
+                                        />
+                                    </label>
+                                </div>
                                 <p className="text-xs text-purple-600 mt-1">
-                                    💡 Conseil: Utilisez une image carrée pour un meilleur rendu
+                                    💡 Conseil: Utilisez une image carrée pour un meilleur rendu (max 5 MB)
                                 </p>
                             </div>
 

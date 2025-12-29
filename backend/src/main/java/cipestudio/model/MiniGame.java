@@ -19,6 +19,7 @@ public class MiniGame {
     private String introText;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private GameType type;
 
     @Column(columnDefinition = "TEXT")

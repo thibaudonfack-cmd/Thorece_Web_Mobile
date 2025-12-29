@@ -122,5 +122,46 @@ export const minigameService = {
             console.error('❌ Failed to parse response:', parseError);
             throw new Error('Invalid response from server');
         }
+    },
+
+    uploadPuzzleImage: async (file) => {
+        console.log('📤 Uploading puzzle image:', file.name);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetchWithAuth('/api/minigames/upload-puzzle-image', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            console.error('❌ Failed to upload image. Status:', response.status);
+            let errorMessage = `Failed to upload image (${response.status})`;
+
+            try {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const error = await response.json();
+                    errorMessage = error.message || errorMessage;
+                } else {
+                    const text = await response.text();
+                    errorMessage = text || errorMessage;
+                }
+            } catch (parseError) {
+                console.error('❌ Could not parse error response:', parseError);
+            }
+
+            throw new Error(errorMessage);
+        }
+
+        try {
+            const data = await response.json();
+            console.log('✅ Image uploaded:', data);
+            return data.url; // Returns the URL of the uploaded image
+        } catch (parseError) {
+            console.error('❌ Failed to parse response:', parseError);
+            throw new Error('Invalid response from server');
+        }
     }
 };
