@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DigicodeGame from './DigicodeGame';
 import DragDropGame from './DragDropGame';
+import ImagePuzzleGame from './ImagePuzzleGame';
 import { authService } from '../../auth/services/auth.service';
 import { minigameService } from '../services/minigame.service';
 
@@ -79,6 +80,9 @@ export default function MiniGameOverlay({ id, successScene, failScene, onComplet
     // Determine which component to use based on game type
     let GameComponent;
     switch (gameData.type) {
+        case 'IMAGE_PUZZLE':
+            GameComponent = ImagePuzzleGame;
+            break;
         case 'DIGITAL_LOCK':
             GameComponent = DigicodeGame;
             break;

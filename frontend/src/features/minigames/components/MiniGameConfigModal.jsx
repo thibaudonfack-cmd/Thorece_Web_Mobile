@@ -2,23 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { minigameService } from '../services/minigame.service';
 
 const GAME_TYPES = [
-    { value: 'DIGITAL_LOCK', label: 'Cadenas Mystique' },
-    { value: 'FILL_BLANKS', label: 'Grimoire Perdu (Texte à trous)' }
+    { value: 'IMAGE_PUZZLE', label: '🧩 Puzzle Visuel' },
+    { value: 'FILL_BLANKS', label: '📝 Grimoire Perdu (Texte à trous)' }
 ];
 
 export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBlocks, existingId = null }) {
     const [config, setConfig] = useState({
-        type: 'DIGITAL_LOCK',
+        type: 'IMAGE_PUZZLE',
         solution: '', // Used for DIGITAL_LOCK
         xpReward: 10,
         successTarget: '',
         failTarget: '',
         name: 'Nouveau jeu',
-        
+
         // Fields for FILL_BLANKS
         fullText: 'Le chevalier mange une pomme',
         hiddenIndices: [],
-        decoys: ''
+        decoys: '',
+
+        // Fields for IMAGE_PUZZLE
+        imageUrl: '',
+        gridSize: 3,
+        timeLimit: 0,
+        instructionText: 'Assemblez les pièces pour révéler l\'image mystère!'
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -47,7 +53,12 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                         solution: parsedContent.solution || '',
                         fullText: parsedContent.fullText || prev.fullText,
                         hiddenIndices: parsedContent.hiddenIndices || [],
-                        decoys: Array.isArray(parsedContent.decoys) ? parsedContent.decoys.join(', ') : ''
+                        decoys: Array.isArray(parsedContent.decoys) ? parsedContent.decoys.join(', ') : '',
+                        // IMAGE_PUZZLE fields
+                        imageUrl: parsedContent.imageUrl || '',
+                        gridSize: parsedContent.gridSize || 3,
+                        timeLimit: parsedContent.timeLimit || 0,
+                        instructionText: parsedContent.instructionText || prev.instructionText
                     }));
                 })
                 .catch(err => setError("Impossible de charger le jeu : " + err.message))
@@ -55,7 +66,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
         } else if (isOpen && !existingId) {
             // Reset for new creation
             setConfig({
-                type: 'DIGITAL_LOCK',
+                type: 'IMAGE_PUZZLE',
                 solution: '',
                 xpReward: 10,
                 successTarget: '',
@@ -63,7 +74,11 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                 name: 'Nouveau jeu',
                 fullText: 'Le chevalier mange une pomme',
                 hiddenIndices: [],
-                decoys: ''
+                decoys: '',
+                imageUrl: '',
+                gridSize: 3,
+                timeLimit: 0,
+                instructionText: 'Assemblez les pièces pour révéler l\'image mystère!'
             });
         }
     }, [isOpen, existingId]);
@@ -118,6 +133,13 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                     fullText: config.fullText,
                     hiddenIndices: config.hiddenIndices,
                     decoys: config.decoys.split(',').map(s => s.trim()).filter(s => s.length > 0)
+                });
+            } else if (config.type === 'IMAGE_PUZZLE') {
+                contentJson = JSON.stringify({
+                    imageUrl: config.imageUrl,
+                    gridSize: parseInt(config.gridSize),
+                    timeLimit: parseInt(config.timeLimit) || null,
+                    instructionText: config.instructionText
                 });
             }
 
@@ -187,6 +209,93 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                     </div>
 
                     {/* DYNAMIC CONTENT CONFIGURATION */}
+                    {config.type === 'IMAGE_PUZZLE' && (
+                        <div className="border border-purple-200 rounded p-4 bg-gradient-to-br from-purple-50 to-indigo-50 space-y-4">
+                            <h3 className="text-lg font-bold text-purple-900 mb-3">⚙️ Configuration du Puzzle</h3>
+
+                            <div>
+                                <label className="block text-sm font-medium text-purple-900 mb-1">
+                                    🖼️ URL de l'image
+                                </label>
+                                <input
+                                    type="url"
+                                    value={config.imageUrl}
+                                    onChange={e => setConfig({...config, imageUrl: e.target.value})}
+                                    className="w-full border border-purple-300 rounded-md p-2"
+                                    placeholder="https://example.com/image.jpg"
+                                    required
+                                />
+                                <p className="text-xs text-purple-600 mt-1">
+                                    💡 Conseil: Utilisez une image carrée pour un meilleur rendu
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-purple-900 mb-1">
+                                    🎚️ Difficulté (Taille de la grille)
+                                </label>
+                                <select
+                                    value={config.gridSize}
+                                    onChange={e => setConfig({...config, gridSize: e.target.value})}
+                                    className="w-full border border-purple-300 rounded-md p-2 bg-white"
+                                >
+                                    <option value={3}>3x3 - Facile (9 pièces) - 6-8 ans</option>
+                                    <option value={4}>4x4 - Moyen (16 pièces) - 9-12 ans</option>
+                                    <option value={5}>5x5 - Difficile (25 pièces) - 13+ ans</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-purple-900 mb-1">
+                                    ⏱️ Temps limite (secondes) - Optionnel
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={config.timeLimit}
+                                    onChange={e => setConfig({...config, timeLimit: e.target.value})}
+                                    className="w-full border border-purple-300 rounded-md p-2"
+                                    placeholder="0 = illimité"
+                                />
+                                <p className="text-xs text-purple-600 mt-1">
+                                    ⚠️ Laissez 0 pour un puzzle sans limite de temps
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-purple-900 mb-1">
+                                    📝 Texte d'instruction (3 phrases max)
+                                </label>
+                                <textarea
+                                    value={config.instructionText}
+                                    onChange={e => setConfig({...config, instructionText: e.target.value})}
+                                    className="w-full border border-purple-300 rounded-md p-2"
+                                    rows={2}
+                                    maxLength={200}
+                                    placeholder="Assemblez les pièces du puzzle pour découvrir le secret!"
+                                />
+                                <p className="text-xs text-purple-600 mt-1">
+                                    {config.instructionText.length}/200 caractères
+                                </p>
+                            </div>
+
+                            {/* Preview */}
+                            {config.imageUrl && (
+                                <div className="mt-4 p-3 bg-white rounded-lg border-2 border-purple-300">
+                                    <p className="text-sm font-medium text-purple-900 mb-2">Aperçu de l'image:</p>
+                                    <img
+                                        src={config.imageUrl}
+                                        alt="Aperçu"
+                                        className="max-w-full h-48 object-cover rounded border-2 border-purple-200"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {config.type === 'DIGITAL_LOCK' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
