@@ -114,6 +114,9 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
 
     // Gérer le drag end
     const handleDragEnd = (event) => {
+        // Bloquer le drag si le jeu n'est pas en cours
+        if (status !== 'playing') return;
+
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
@@ -129,6 +132,9 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
     };
 
     const handlePieceClick = (pieceId) => {
+        // Bloquer les clics si le jeu n'est pas en cours
+        if (status !== 'playing') return;
+
         selectPiece(pieceId);
     };
 

@@ -53,7 +53,10 @@ export const usePuzzleStore = create((set, get) => ({
     },
 
     selectPiece: (pieceId) => {
-        const { selectedPieceId } = get();
+        const { selectedPieceId, status } = get();
+
+        // Bloquer les interactions si le jeu n'est pas en cours
+        if (status !== 'playing') return;
 
         if (selectedPieceId === pieceId) {
             // Désélectionner si on clique sur la même pièce
@@ -68,7 +71,10 @@ export const usePuzzleStore = create((set, get) => ({
     },
 
     swapPieces: (pieceId1, pieceId2) => {
-        const { pieces } = get();
+        const { pieces, status } = get();
+
+        // Bloquer les interactions si le jeu n'est pas en cours
+        if (status !== 'playing') return;
 
         const piece1Index = pieces.findIndex(p => p.id === pieceId1);
         const piece2Index = pieces.findIndex(p => p.id === pieceId2);
@@ -105,13 +111,22 @@ export const usePuzzleStore = create((set, get) => ({
     decrementTimer: () => {
         const { timeLeft, status } = get();
 
-        if (status === 'playing' && timeLeft !== null && timeLeft > 0) {
-            set({ timeLeft: timeLeft - 1 });
-        } else if (timeLeft === 0 && status === 'playing') {
-            set({
-                status: 'lost',
-                showDefeatScreen: true
-            });
+        if (status !== 'playing' || timeLeft === null) {
+            return;
+        }
+
+        if (timeLeft > 0) {
+            const newTimeLeft = timeLeft - 1;
+            set({ timeLeft: newTimeLeft });
+
+            // Si on vient d'atteindre 0, déclencher immédiatement la défaite
+            if (newTimeLeft === 0) {
+                console.log('⏰ Temps écoulé ! Défaite déclenchée.');
+                set({
+                    status: 'lost',
+                    showDefeatScreen: true
+                });
+            }
         }
     },
 
