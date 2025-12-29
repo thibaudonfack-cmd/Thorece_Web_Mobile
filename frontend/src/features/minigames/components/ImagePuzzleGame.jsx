@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { minigameService } from '../services/minigame.service';
-import { Download, Trophy, Timer, CheckCircle2, XCircle } from 'lucide-react';
+import {
+    ArrowDownTrayIcon,
+    TrophyIcon,
+    ClockIcon,
+    CheckCircleIcon,
+    XCircleIcon
+} from '@heroicons/react/24/outline';
 
 export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
     const [status, setStatus] = useState('loading'); // loading, playing, won, lost, error
@@ -265,7 +271,7 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
     if (status === 'error') {
         return (
             <div className="text-red-500 text-center p-8 flex flex-col items-center gap-4">
-                <XCircle size={48} />
+                <XCircleIcon className="w-12 h-12" />
                 <p>Impossible de charger le puzzle</p>
             </div>
         );
@@ -297,13 +303,13 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
             {/* Stats Bar */}
             <div className="relative z-10 w-full mb-6 flex justify-around items-center bg-black/30 backdrop-blur-sm rounded-lg p-4">
                 <div className="flex items-center gap-2 text-amber-400">
-                    <Trophy size={24} />
+                    <TrophyIcon className="w-6 h-6" />
                     <span className="font-bold">{moves} coups</span>
                 </div>
 
                 {timeLeft !== null && (
                     <div className={`flex items-center gap-2 ${timeLeft < 30 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`}>
-                        <Timer size={24} />
+                        <ClockIcon className="w-6 h-6" />
                         <span className="font-mono font-bold text-lg">{formatTime(timeLeft)}</span>
                     </div>
                 )}
@@ -377,9 +383,9 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
 
                     <div className="relative z-10 text-center space-y-6">
                         <div className="flex items-center gap-4 text-green-400 animate-bounce">
-                            <CheckCircle2 size={64} />
+                            <CheckCircleIcon className="w-16 h-16" />
                             <h3 className="text-6xl font-bold">BRAVO!</h3>
-                            <CheckCircle2 size={64} />
+                            <CheckCircleIcon className="w-16 h-16" />
                         </div>
 
                         <p className="text-2xl text-white">Puzzle résolu en {moves} coups!</p>
@@ -392,7 +398,7 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
                                     onClick={downloadVictoryCard}
                                     className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg font-bold hover:from-amber-600 hover:to-yellow-600 transition-all shadow-lg hover:shadow-xl"
                                 >
-                                    <Download size={24} />
+                                    <ArrowDownTrayIcon className="w-6 h-6" />
                                     Télécharger la carte de victoire
                                 </button>
                             )}
@@ -415,7 +421,7 @@ export default function ImagePuzzleGame({ onWin, onLose, gameId }) {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
                     <div className="text-center space-y-4">
                         <div className="text-red-500 animate-pulse">
-                            <XCircle size={64} className="mx-auto" />
+                            <XCircleIcon className="w-16 h-16 mx-auto" />
                         </div>
                         <h3 className="text-3xl font-bold text-white">Temps écoulé!</h3>
                         <p className="text-gray-300">Essayez à nouveau pour résoudre le puzzle</p>
