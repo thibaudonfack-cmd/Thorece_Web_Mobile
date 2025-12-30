@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TrophyIcon, ClockIcon, SparklesIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import ConfettiExplosion from 'react-confetti-explosion';
-import useSound from 'use-sound';
 
 import { minigameService } from '../services/minigame.service';
 import { useMemoryStore } from '../stores/useMemoryStore';

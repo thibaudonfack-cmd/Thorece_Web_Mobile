@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { minigameService } from '../services/minigame.service';
+import { defaultImagesWithDataURL, imagesByCategory } from '../data/defaultImages';
 
 const GAME_TYPES = [
     { value: 'IMAGE_PUZZLE', label: '🧩 Puzzle Visuel' },
@@ -36,6 +37,8 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [showDefaultImages, setShowDefaultImages] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('Animaux');
 
     // Load existing data when modal opens with an ID
     useEffect(() => {
@@ -208,6 +211,18 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
         });
     };
 
+    // Sélectionner une image de la bibliothèque par défaut (Memory)
+    const selectDefaultImageMemory = (imageUrl) => {
+        setConfig({...config, imagePairs: [...config.imagePairs, imageUrl]});
+        setShowDefaultImages(false);
+    };
+
+    // Sélectionner une image de la bibliothèque par défaut (Puzzle)
+    const selectDefaultImagePuzzle = (imageUrl) => {
+        setConfig({...config, imageUrl});
+        setShowDefaultImages(false);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -325,9 +340,70 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                             <h3 className="text-lg font-bold text-purple-900 mb-3">⚙️ Configuration du Puzzle</h3>
 
                             <div>
-                                <label className="block text-sm font-medium text-purple-900 mb-1">
+                                <label className="block text-sm font-medium text-purple-900 mb-2">
                                     🖼️ Image du puzzle
                                 </label>
+
+                                {/* Bibliothèque d'images par défaut */}
+                                <div className="mb-3 bg-white p-3 rounded-lg border-2 border-purple-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDefaultImages(!showDefaultImages)}
+                                        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-100 to-indigo-100 hover:from-purple-200 hover:to-indigo-200 rounded-lg transition-all"
+                                    >
+                                        <span className="text-purple-900 font-medium">
+                                            ✨ Bibliothèque d'images (12 images incluses)
+                                        </span>
+                                        <span className="text-2xl">{showDefaultImages ? '▼' : '▶'}</span>
+                                    </button>
+
+                                    {showDefaultImages && (
+                                        <div className="mt-3">
+                                            {/* Onglets de catégories */}
+                                            <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                                                {Object.keys(imagesByCategory).map(category => (
+                                                    <button
+                                                        key={category}
+                                                        type="button"
+                                                        onClick={() => setSelectedCategory(category)}
+                                                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                                                            selectedCategory === category
+                                                                ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg scale-105'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {category}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Grille d'images */}
+                                            <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto p-2">
+                                                {imagesByCategory[selectedCategory]?.map(img => (
+                                                    <button
+                                                        key={img.id}
+                                                        type="button"
+                                                        onClick={() => selectDefaultImagePuzzle(img.dataUrl)}
+                                                        className="relative group aspect-square border-2 border-purple-200 rounded-lg overflow-hidden hover:border-purple-500 hover:shadow-lg transition-all hover:scale-105"
+                                                        title={img.name}
+                                                    >
+                                                        <img
+                                                            src={img.dataUrl}
+                                                            alt={img.name}
+                                                            className="w-full h-full object-contain p-2 bg-white"
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-2">
+                                                            <span className="text-white text-xs font-medium">{img.name}</span>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Upload personnalisé */}
+                                <p className="text-xs text-purple-700 mb-2 text-center">ou</p>
                                 <div className="flex items-center gap-2">
                                     <label className="flex-1 cursor-pointer">
                                         <div className="w-full border-2 border-dashed border-purple-300 rounded-md p-4 hover:border-purple-500 hover:bg-purple-50 transition-colors text-center">
@@ -336,7 +412,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                                             ) : config.imageUrl ? (
                                                 <span className="text-green-600">✅ Image chargée - Cliquer pour changer</span>
                                             ) : (
-                                                <span className="text-purple-600">📁 Cliquer pour sélectionner une image</span>
+                                                <span className="text-purple-600">📁 Uploader votre propre image</span>
                                             )}
                                         </div>
                                         <input
@@ -349,7 +425,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                                     </label>
                                 </div>
                                 <p className="text-xs text-purple-600 mt-1">
-                                    💡 Conseil: Utilisez une image carrée pour un meilleur rendu (max 5 MB)
+                                    💡 Utilisez la bibliothèque ou uploadez une image carrée (max 5 MB)
                                 </p>
                             </div>
 
@@ -470,16 +546,77 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                             <h3 className="text-lg font-bold text-pink-900 mb-3">⚙️ Configuration du Jeu de Paires</h3>
 
                             <div>
-                                <label className="block text-sm font-medium text-pink-900 mb-1">
+                                <label className="block text-sm font-medium text-pink-900 mb-2">
                                     🖼️ Images pour les paires
                                 </label>
+
+                                {/* Bibliothèque d'images par défaut */}
+                                <div className="mb-3 bg-white p-3 rounded-lg border-2 border-pink-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDefaultImages(!showDefaultImages)}
+                                        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-pink-100 to-purple-100 hover:from-pink-200 hover:to-purple-200 rounded-lg transition-all"
+                                    >
+                                        <span className="text-pink-900 font-medium">
+                                            ✨ Bibliothèque d'images (12 images incluses)
+                                        </span>
+                                        <span className="text-2xl">{showDefaultImages ? '▼' : '▶'}</span>
+                                    </button>
+
+                                    {showDefaultImages && (
+                                        <div className="mt-3">
+                                            {/* Onglets de catégories */}
+                                            <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                                                {Object.keys(imagesByCategory).map(category => (
+                                                    <button
+                                                        key={category}
+                                                        type="button"
+                                                        onClick={() => setSelectedCategory(category)}
+                                                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                                                            selectedCategory === category
+                                                                ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg scale-105'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {category}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Grille d'images */}
+                                            <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto p-2">
+                                                {imagesByCategory[selectedCategory]?.map(img => (
+                                                    <button
+                                                        key={img.id}
+                                                        type="button"
+                                                        onClick={() => selectDefaultImageMemory(img.dataUrl)}
+                                                        className="relative group aspect-square border-2 border-pink-200 rounded-lg overflow-hidden hover:border-pink-500 hover:shadow-lg transition-all hover:scale-105"
+                                                        title={img.name}
+                                                    >
+                                                        <img
+                                                            src={img.dataUrl}
+                                                            alt={img.name}
+                                                            className="w-full h-full object-contain p-2 bg-white"
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-pink-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-2">
+                                                            <span className="text-white text-xs font-medium">{img.name}</span>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Upload personnalisé */}
                                 <div className="mb-3">
+                                    <p className="text-xs text-pink-700 mb-2 text-center">ou</p>
                                     <label className="cursor-pointer">
                                         <div className="w-full border-2 border-dashed border-pink-300 rounded-md p-4 hover:border-pink-500 hover:bg-pink-50 transition-colors text-center">
                                             {uploadingImage ? (
                                                 <span className="text-pink-600">📤 Upload en cours...</span>
                                             ) : (
-                                                <span className="text-pink-600">📁 Cliquer pour ajouter une image</span>
+                                                <span className="text-pink-600">📁 Uploader votre propre image</span>
                                             )}
                                         </div>
                                         <input
@@ -492,7 +629,7 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                                     </label>
                                 </div>
                                 <p className="text-xs text-pink-600 mb-3">
-                                    💡 Conseil: Ajoutez des images variées et attractives. Chaque image sera dupliquée pour créer une paire (max 5 MB par image)
+                                    💡 Utilisez la bibliothèque ou uploadez vos propres images (max 5 MB)
                                 </p>
 
                                 {/* Image Gallery */}
