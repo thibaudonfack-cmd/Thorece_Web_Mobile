@@ -80,8 +80,20 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                             return;
                         }
 
-                        setMemoryConfig(fullConfig);
-                        initializeGame(fullConfig);
+                        // Validation supplémentaire : vérifier que les URLs d'images sont valides
+                        const validImagePairs = fullConfig.imagePairs.filter(url => url && typeof url === 'string' && url.trim() !== '');
+                        if (validImagePairs.length === 0) {
+                            console.error('❌ ERROR: No valid image URLs in config!');
+                            setError('Les URLs des images sont invalides');
+                            setStatus('error');
+                            return;
+                        }
+
+                        // Utiliser les URLs d'images valides
+                        const validConfig = { ...fullConfig, imagePairs: validImagePairs };
+
+                        setMemoryConfig(validConfig);
+                        initializeGame(validConfig);
                         console.log('🎯 Game initialized successfully');
                     } catch (e) {
                         console.error('❌ Invalid game config JSON', e);
@@ -119,9 +131,18 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
 
     const handleCardClick = (cardId) => {
         console.log('🎯 handleCardClick called:', cardId, 'Status:', status);
+        console.log('📊 Current state:', { status, cardsCount: cards.length, isLocked, flippedCardsCount: flippedCards.length });
+
         // Bloquer les clics si le jeu n'est pas en cours
         if (status !== 'playing') {
             console.log('⏸️ Card flip blocked: status is not "playing", current status:', status);
+            return;
+        }
+
+        // Vérification de sécurité : s'assurer que la carte existe
+        const card = cards.find(c => c.id === cardId);
+        if (!card) {
+            console.error('❌ Card not found:', cardId);
             return;
         }
 
@@ -219,6 +240,25 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     const { gridSize, instructionText } = memoryConfig;
 
     console.log('🎲 Rendering Memory game', { gridSize, cardsCount: cards.length, status });
+
+    // Vérification de sécurité : ne pas afficher si pas de cartes
+    if (cards.length === 0 && status === 'playing') {
+        console.warn('⚠️ Game status is "playing" but no cards available. Possible initialization issue.');
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center p-8 gap-4"
+            >
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full"
+                />
+                <p className="text-white text-lg font-semibold">Préparation des cartes...</p>
+            </motion.div>
+        );
+    }
 
     return (
         <>

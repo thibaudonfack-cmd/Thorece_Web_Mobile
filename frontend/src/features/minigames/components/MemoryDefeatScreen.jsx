@@ -104,11 +104,27 @@ export default function MemoryDefeatScreen({ reason = 'timeout', moves, pairsFou
                         {reasonData.icon}
                     </motion.div>
 
-                    <h2 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-pink-600 mb-2">
+                    <h2 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-pink-600 mb-4">
                         {reasonData.title}
                     </h2>
-                    <p className="text-xl text-gray-700">
+
+                    {/* Message "Dommage" pour les enfants */}
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.6, type: 'spring', bounce: 0.6 }}
+                        className="inline-block bg-gradient-to-r from-orange-100 to-pink-100 px-8 py-4 rounded-2xl border-4 border-orange-300 mb-4"
+                    >
+                        <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600">
+                            😔 Dommage !
+                        </p>
+                    </motion.div>
+
+                    <p className="text-xl text-gray-700 mb-2">
                         {reasonData.message}
+                    </p>
+                    <p className="text-lg text-pink-600 font-semibold">
+                        Ne t'inquiète pas, l'histoire continue ! 📖✨
                     </p>
                 </motion.div>
 
