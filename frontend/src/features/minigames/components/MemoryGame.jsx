@@ -15,6 +15,7 @@ import { createSoundEffects } from '../utils/soundEffects';
 export default function MemoryGame({ onWin, onLose, gameId }) {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [soundEffects, setSoundEffects] = useState(null);
+    const [error, setError] = useState(null);
 
     const {
         status,
@@ -51,11 +52,15 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     // Charger la configuration du jeu
     useEffect(() => {
         if (gameId) {
+            console.log('🎮 Loading Memory game with ID:', gameId);
             minigameService
                 .getById(gameId)
                 .then((data) => {
+                    console.log('📦 Game data received:', data);
                     try {
                         const config = JSON.parse(data.contentJson);
+                        console.log('📋 Parsed config:', config);
+
                         const fullConfig = {
                             ...config,
                             gridSize: config.gridSize || 4, // 4x4 par défaut
@@ -64,21 +69,43 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                             instructionText:
                                 config.instructionText || 'Trouvez toutes les paires d\'images identiques!',
                         };
+
+                        console.log('✅ Full config:', fullConfig);
+                        console.log(`🖼️ Image pairs count: ${fullConfig.imagePairs.length}`);
+
+                        if (!fullConfig.imagePairs || fullConfig.imagePairs.length === 0) {
+                            console.error('❌ ERROR: No image pairs in config!');
+                            setError('Aucune image configurée pour ce jeu');
+                            setStatus('error');
+                            return;
+                        }
+
                         setMemoryConfig(fullConfig);
                         initializeGame(fullConfig);
+                        console.log('🎯 Game initialized successfully');
                     } catch (e) {
-                        console.error('Invalid game config JSON', e);
+                        console.error('❌ Invalid game config JSON', e);
                         setStatus('error');
                     }
                 })
                 .catch((err) => {
-                    console.error('Failed to load game', err);
+                    console.error('❌ Failed to load game', err);
                     setStatus('error');
                 });
         }
 
         return () => reset();
     }, [gameId]);
+
+    // Log status changes
+    useEffect(() => {
+        console.log('🎮 Game status changed:', status);
+    }, [status]);
+
+    // Log cards changes
+    useEffect(() => {
+        console.log(`🃏 Cards in game: ${cards.length}, Status: ${status}`);
+    }, [cards.length, status]);
 
     // Timer
     useEffect(() => {
@@ -91,14 +118,19 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     }, [timeLeft, status]);
 
     const handleCardClick = (cardId) => {
+        console.log('🎯 handleCardClick called:', cardId, 'Status:', status);
         // Bloquer les clics si le jeu n'est pas en cours
-        if (status !== 'playing') return;
+        if (status !== 'playing') {
+            console.log('⏸️ Card flip blocked: status is not "playing", current status:', status);
+            return;
+        }
 
         // Jouer le son de flip
         if (soundEnabled && soundEffects) {
             soundEffects.playFlipSound();
         }
 
+        console.log('🔄 Calling flipCard for:', cardId);
         flipCard(cardId);
     };
 
@@ -163,23 +195,30 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     }
 
     if (status === 'error') {
+        console.log('❌ Showing error screen. Error:', error);
         return (
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-8 gap-4 text-red-500"
+                className="flex flex-col items-center justify-center p-8 gap-4 text-white bg-red-900/50 rounded-2xl"
             >
                 <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
                     <span className="text-4xl">⚠️</span>
                 </div>
                 <p className="text-lg font-semibold">Impossible de charger le jeu de mémoire</p>
+                {error && <p className="text-sm text-red-300">{error}</p>}
             </motion.div>
         );
     }
 
-    if (!memoryConfig) return null;
+    if (!memoryConfig) {
+        console.log('⏳ Waiting for config...');
+        return null;
+    }
 
     const { gridSize, instructionText } = memoryConfig;
+
+    console.log('🎲 Rendering Memory game', { gridSize, cardsCount: cards.length, status });
 
     return (
         <>

@@ -21,13 +21,21 @@ export const useMemoryStore = create((set, get) => ({
     setStatus: (status) => set({ status }),
 
     initializeGame: (config) => {
+        console.log('🎬 initializeGame called with config:', config);
         const { gridSize, imagePairs } = config;
+
+        if (!imagePairs || imagePairs.length === 0) {
+            console.error('❌ initializeGame: No image pairs!');
+            return;
+        }
 
         // Créer les paires de cartes à partir des URLs d'images
         const cardPairs = imagePairs.flatMap((imageUrl, index) => [
             { id: `${index}-a`, pairId: index, imageUrl: imageUrl, isMatched: false, isFlipped: false },
             { id: `${index}-b`, pairId: index, imageUrl: imageUrl, isMatched: false, isFlipped: false },
         ]);
+
+        console.log(`🃏 Created ${cardPairs.length} cards from ${imagePairs.length} pairs`);
 
         // Mélanger les cartes avec lodash shuffle
         const shuffledCards = shuffle(cardPairs);
@@ -45,21 +53,42 @@ export const useMemoryStore = create((set, get) => ({
             showDefeatScreen: false,
             showConfetti: null,
         });
+
+        console.log('✅ Game initialized! Status set to "playing" with', shuffledCards.length, 'cards');
     },
 
     flipCard: (cardId) => {
         const { cards, flippedCards, isLocked, matchedPairs, status } = get();
 
+        console.log('🔄 flipCard called:', cardId, { status, isLocked, flippedCardsCount: flippedCards.length });
+
         // Gardes de sécurité
-        if (status !== 'playing') return;
-        if (isLocked) return;
-        if (flippedCards.includes(cardId)) return; // Carte déjà retournée
-        if (matchedPairs.some(pair => pair.includes(cardId))) return; // Carte déjà matchée
+        if (status !== 'playing') {
+            console.log('⏸️ flipCard blocked: status is not playing:', status);
+            return;
+        }
+        if (isLocked) {
+            console.log('⏸️ flipCard blocked: game is locked');
+            return;
+        }
+        if (flippedCards.includes(cardId)) {
+            console.log('⏸️ flipCard blocked: card already flipped');
+            return;
+        }
+        if (matchedPairs.some(pair => pair.includes(cardId))) {
+            console.log('⏸️ flipCard blocked: card already matched');
+            return;
+        }
 
         const card = cards.find(c => c.id === cardId);
-        if (!card) return;
+        if (!card) {
+            console.log('⏸️ flipCard blocked: card not found');
+            return;
+        }
 
         const newFlippedCards = [...flippedCards, cardId];
+
+        console.log('✅ Flipping card:', cardId, 'New flipped cards:', newFlippedCards);
 
         // Mettre à jour les cartes retournées
         set({
@@ -69,6 +98,7 @@ export const useMemoryStore = create((set, get) => ({
 
         // Si c'est la deuxième carte retournée, vérifier la paire
         if (newFlippedCards.length === 2) {
+            console.log('🎲 Two cards flipped, checking match...');
             get().checkMatch();
         }
     },

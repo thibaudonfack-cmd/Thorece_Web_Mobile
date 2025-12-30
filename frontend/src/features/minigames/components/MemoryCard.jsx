@@ -11,7 +11,20 @@ export default function MemoryCard({
     showShakeAnimation,
 }) {
     const handleClick = () => {
-        if (isLocked || isFlipped || isMatched) return;
+        console.log('🖱️ Card clicked:', card.id, { isLocked, isFlipped, isMatched });
+        if (isLocked) {
+            console.log('⏸️ Card click blocked: game is locked');
+            return;
+        }
+        if (isFlipped) {
+            console.log('⏸️ Card click blocked: already flipped');
+            return;
+        }
+        if (isMatched) {
+            console.log('⏸️ Card click blocked: already matched');
+            return;
+        }
+        console.log('✅ Flipping card:', card.id);
         onFlip(card.id);
     };
 
