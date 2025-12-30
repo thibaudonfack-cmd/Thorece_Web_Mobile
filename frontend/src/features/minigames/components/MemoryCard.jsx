@@ -26,8 +26,11 @@ export default function MemoryCard({
                     rotateY: isFlipped || isMatched ? 180 : 0,
                     scale: isMatched ? 1.05 : 1,
                 }}
-                whileHover={!isFlipped && !isMatched && !isLocked ? { scale: 1.05 } : {}}
-                whileTap={!isFlipped && !isMatched && !isLocked ? { scale: 0.95 } : {}}
+                whileHover={!isFlipped && !isMatched && !isLocked ? {
+                    scale: 1.1,
+                    rotate: [0, -2, 2, 0],
+                } : {}}
+                whileTap={!isFlipped && !isMatched && !isLocked ? { scale: 0.9 } : {}}
                 transition={{
                     type: 'spring',
                     stiffness: 260,
@@ -45,8 +48,18 @@ export default function MemoryCard({
                     animate={showShakeAnimation ? {
                         x: [0, -10, 10, -10, 10, 0],
                         rotate: [0, -2, 2, -2, 2, 0],
+                    } : !isFlipped && !isMatched ? {
+                        boxShadow: [
+                            '0 20px 25px -5px rgba(236, 72, 153, 0.5)',
+                            '0 25px 50px -12px rgba(236, 72, 153, 0.8)',
+                            '0 20px 25px -5px rgba(236, 72, 153, 0.5)',
+                        ],
                     } : {}}
-                    transition={{ duration: 0.5 }}
+                    transition={showShakeAnimation ? { duration: 0.5 } : {
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                    }}
                 >
                     <div className="w-full h-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 relative overflow-hidden">
                         {/* Motif de fond animé */}
@@ -102,13 +115,16 @@ export default function MemoryCard({
                         rotateY: 180,
                     }}
                 >
-                    <div className="w-full h-full bg-white relative">
-                        {/* Image */}
+                    <div className="w-full h-full bg-gradient-to-br from-white to-gray-50 relative flex items-center justify-center p-2">
+                        {/* Image - object-contain pour voir toute l'image */}
                         <img
                             src={card.imageUrl}
                             alt="Carte mémoire"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain rounded-lg"
                             loading="lazy"
+                            style={{
+                                imageRendering: 'crisp-edges',
+                            }}
                         />
 
                         {/* Overlay si matchée */}

@@ -1,16 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrophyIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { TrophyIcon, ClockIcon, SparklesIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import ConfettiExplosion from 'react-confetti-explosion';
+import useSound from 'use-sound';
 
 import { minigameService } from '../services/minigame.service';
 import { useMemoryStore } from '../stores/useMemoryStore';
 import MemoryCard from './MemoryCard';
 import MemoryVictoryScreen from './MemoryVictoryScreen';
 import MemoryDefeatScreen from './MemoryDefeatScreen';
+import { createSoundEffects } from '../utils/soundEffects';
 
 export default function MemoryGame({ onWin, onLose, gameId }) {
+    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [soundEffects, setSoundEffects] = useState(null);
+
     const {
         status,
         memoryConfig,
@@ -32,6 +37,16 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
         closeDefeatScreen,
         reset,
     } = useMemoryStore();
+
+    // Initialiser les effets sonores
+    useEffect(() => {
+        try {
+            const effects = createSoundEffects();
+            setSoundEffects(effects);
+        } catch (error) {
+            console.error('Failed to initialize sound effects:', error);
+        }
+    }, []);
 
     // Charger la configuration du jeu
     useEffect(() => {
@@ -78,8 +93,37 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     const handleCardClick = (cardId) => {
         // Bloquer les clics si le jeu n'est pas en cours
         if (status !== 'playing') return;
+
+        // Jouer le son de flip
+        if (soundEnabled && soundEffects) {
+            soundEffects.playFlipSound();
+        }
+
         flipCard(cardId);
     };
+
+    // Effet sonore pour les paires trouvées
+    useEffect(() => {
+        if (matchedPairs.length > 0 && soundEnabled && soundEffects) {
+            soundEffects.playMatchSound();
+        }
+    }, [matchedPairs.length]);
+
+    // Effet sonore pour la victoire
+    useEffect(() => {
+        if (status === 'won' && soundEnabled && soundEffects) {
+            setTimeout(() => {
+                soundEffects.playVictorySound();
+            }, 500);
+        }
+    }, [status]);
+
+    // Effet sonore pour le timer en dessous de 10 secondes
+    useEffect(() => {
+        if (timeLeft !== null && timeLeft <= 10 && timeLeft > 0 && status === 'playing' && soundEnabled && soundEffects) {
+            soundEffects.playTickSound();
+        }
+    }, [timeLeft]);
 
     const handleVictoryContinue = () => {
         closeVictoryScreen();
@@ -143,7 +187,7 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="relative flex flex-col items-center justify-center p-6 bg-gradient-to-br from-pink-900 via-purple-900 to-indigo-900 rounded-3xl shadow-2xl max-w-5xl mx-auto overflow-hidden min-h-[700px]"
+                className="relative flex flex-col items-center justify-center p-4 md:p-6 bg-gradient-to-br from-pink-900 via-purple-900 to-indigo-900 rounded-3xl shadow-2xl w-full max-w-6xl mx-auto overflow-hidden min-h-[600px] md:min-h-[700px]"
             >
                 {/* Animated background blobs */}
                 <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -183,14 +227,32 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                     initial={{ y: -50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="relative z-10 w-full mb-6 text-center"
+                    className="relative z-10 w-full mb-4 md:mb-6 text-center"
                 >
-                    <h2 className="text-white font-serif text-4xl mb-3 tracking-wide flex items-center justify-center gap-3">
-                        <SparklesIcon className="w-10 h-10 text-pink-400" />
-                        Jeu de Paires
-                        <SparklesIcon className="w-10 h-10 text-pink-400" />
-                    </h2>
-                    <p className="text-purple-200 text-lg max-w-2xl mx-auto px-4">
+                    <div className="relative px-12 md:px-0">
+                        <h2 className="text-white font-serif text-2xl md:text-4xl mb-2 md:mb-3 tracking-wide flex items-center justify-center gap-2 md:gap-3">
+                            <SparklesIcon className="w-6 h-6 md:w-10 md:h-10 text-pink-400" />
+                            Jeu de Paires
+                            <SparklesIcon className="w-6 h-6 md:w-10 md:h-10 text-pink-400" />
+                        </h2>
+
+                        {/* Bouton Son */}
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setSoundEnabled(!soundEnabled)}
+                            className="absolute top-0 right-0 md:right-4 bg-white/20 backdrop-blur-sm rounded-full p-2 md:p-3 hover:bg-white/30 transition-colors"
+                            title={soundEnabled ? 'Désactiver le son' : 'Activer le son'}
+                        >
+                            {soundEnabled ? (
+                                <SpeakerWaveIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                            ) : (
+                                <SpeakerXMarkIcon className="w-5 h-5 md:w-6 md:h-6 text-white/50" />
+                            )}
+                        </motion.button>
+                    </div>
+
+                    <p className="text-purple-200 text-sm md:text-lg max-w-2xl mx-auto px-4">
                         {instructionText}
                     </p>
                 </motion.div>
@@ -200,16 +262,16 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="relative z-10 w-full mb-8 flex flex-wrap justify-center items-center gap-4 bg-black/40 backdrop-blur-md rounded-2xl p-4 shadow-xl"
+                    className="relative z-10 w-full mb-4 md:mb-8 flex flex-wrap justify-center items-center gap-2 md:gap-4 bg-black/40 backdrop-blur-md rounded-2xl p-3 md:p-4 shadow-xl"
                 >
                     <motion.div
                         whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-6 py-3 rounded-xl shadow-lg"
+                        className="flex items-center gap-2 md:gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-3 md:px-6 py-2 md:py-3 rounded-xl shadow-lg"
                     >
-                        <TrophyIcon className="w-6 h-6 text-white" />
+                        <TrophyIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                         <div className="text-left">
                             <p className="text-xs text-pink-100">Mouvements</p>
-                            <p className="text-2xl font-bold text-white">{moves}</p>
+                            <p className="text-xl md:text-2xl font-bold text-white">{moves}</p>
                         </div>
                     </motion.div>
 
@@ -226,16 +288,16 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                             }
                             transition={timeLeft < 30 ? { duration: 1, repeat: Infinity } : {}}
                             className={clsx(
-                                'flex items-center gap-3 px-6 py-3 rounded-xl shadow-lg',
+                                'flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 rounded-xl shadow-lg',
                                 timeLeft < 30
                                     ? 'bg-gradient-to-r from-red-500 to-red-600'
                                     : 'bg-gradient-to-r from-blue-500 to-indigo-500'
                             )}
                         >
-                            <ClockIcon className="w-6 h-6 text-white" />
+                            <ClockIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                             <div className="text-left">
                                 <p className="text-xs text-blue-100">Temps restant</p>
-                                <p className="text-2xl font-mono font-bold text-white">
+                                <p className="text-xl md:text-2xl font-mono font-bold text-white">
                                     {formatTime(timeLeft)}
                                 </p>
                             </div>
@@ -244,12 +306,12 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
 
                     <motion.div
                         whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-indigo-500 px-6 py-3 rounded-xl shadow-lg"
+                        className="flex items-center gap-2 md:gap-3 bg-gradient-to-r from-purple-500 to-indigo-500 px-3 md:px-6 py-2 md:py-3 rounded-xl shadow-lg"
                     >
-                        <span className="text-3xl">🧠</span>
+                        <span className="text-2xl md:text-3xl">🧠</span>
                         <div className="text-left">
                             <p className="text-xs text-purple-100">Paires à trouver</p>
-                            <p className="text-2xl font-bold text-white">
+                            <p className="text-xl md:text-2xl font-bold text-white">
                                 {matchedPairs.length} / {cards.length / 2}
                             </p>
                         </div>
@@ -261,14 +323,14 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.6, type: 'spring' }}
-                    className="relative z-10 mb-8"
+                    className="relative z-10 mb-8 w-full"
                 >
-                    <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                    <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-2xl">
                         <div
-                            className="grid gap-4"
+                            className="grid gap-3 md:gap-4 mx-auto"
                             style={{
                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                maxWidth: `${gridSize * 120}px`,
+                                maxWidth: gridSize === 3 ? '600px' : gridSize === 4 ? '700px' : '850px',
                             }}
                         >
                             {cards.map((card) => {
