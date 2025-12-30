@@ -89,8 +89,10 @@ export const useMemoryStore = create((set, get) => ({
             setTimeout(() => set({ showConfetti: null }), 2500);
 
             setTimeout(() => {
+                const newMatchedPairs = [...matchedPairs, [firstCardId, secondCardId]];
+
                 set({
-                    matchedPairs: [...matchedPairs, [firstCardId, secondCardId]],
+                    matchedPairs: newMatchedPairs,
                     cards: cards.map(c =>
                         c.id === firstCardId || c.id === secondCardId
                             ? { ...c, isMatched: true }
@@ -101,7 +103,11 @@ export const useMemoryStore = create((set, get) => ({
                 });
 
                 // Vérifier si toutes les paires sont trouvées
-                if (get().matchedPairs.length + 1 === cards.length / 2) {
+                const totalPairs = cards.length / 2;
+                console.log(`🎯 Paires trouvées: ${newMatchedPairs.length}/${totalPairs}`);
+
+                if (newMatchedPairs.length === totalPairs) {
+                    console.log('🎉 Toutes les paires trouvées ! Victoire !');
                     setTimeout(() => {
                         set({
                             status: 'won',
