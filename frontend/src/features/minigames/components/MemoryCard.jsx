@@ -128,15 +128,17 @@ export default function MemoryCard({
                         rotateY: 180,
                     }}
                 >
-                    <div className="w-full h-full bg-gradient-to-br from-white to-gray-50 relative flex items-center justify-center p-2">
+                    <div className="w-full h-full bg-gradient-to-br from-purple-50 to-pink-50 relative flex items-center justify-center p-1">
                         {/* Image - object-contain pour voir toute l'image */}
                         <img
                             src={card.imageUrl}
                             alt="Carte mémoire"
-                            className="w-full h-full object-contain rounded-lg"
+                            className="w-full h-full object-contain rounded-lg drop-shadow-lg"
                             loading="lazy"
                             style={{
-                                imageRendering: 'crisp-edges',
+                                imageRendering: 'auto',
+                                maxWidth: '100%',
+                                maxHeight: '100%',
                             }}
                         />
 

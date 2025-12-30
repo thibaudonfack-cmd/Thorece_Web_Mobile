@@ -16,6 +16,7 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [soundEffects, setSoundEffects] = useState(null);
     const [error, setError] = useState(null);
+    const [loadingTimeout, setLoadingTimeout] = useState(false);
 
     const {
         status,
@@ -48,6 +49,20 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
             console.error('Failed to initialize sound effects:', error);
         }
     }, []);
+
+    // Timeout de sécurité pour le chargement
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (status === 'loading') {
+                console.error('⏰ Loading timeout! Game failed to initialize after 5 seconds');
+                setLoadingTimeout(true);
+                setError('Le jeu prend trop de temps à charger. Veuillez réessayer.');
+                setStatus('error');
+            }
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [status]);
 
     // Charger la configuration du jeu
     useEffect(() => {
@@ -406,10 +421,11 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                 >
                     <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-2xl">
                         <div
-                            className="grid gap-3 md:gap-4 mx-auto"
+                            className="grid gap-4 md:gap-6 mx-auto"
                             style={{
                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                maxWidth: gridSize === 3 ? '600px' : gridSize === 4 ? '700px' : '850px',
+                                maxWidth: gridSize === 3 ? '700px' : gridSize === 4 ? '800px' : '950px',
+                                minHeight: gridSize === 3 ? '700px' : gridSize === 4 ? '800px' : '950px',
                             }}
                         >
                             {cards.map((card) => {

@@ -26,6 +26,7 @@ export const useMemoryStore = create((set, get) => ({
 
         if (!imagePairs || imagePairs.length === 0) {
             console.error('❌ initializeGame: No image pairs!');
+            set({ status: 'error' });
             return;
         }
 
