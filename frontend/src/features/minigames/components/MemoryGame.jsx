@@ -281,7 +281,8 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="relative flex flex-col items-center justify-center p-4 md:p-6 bg-gradient-to-br from-pink-900 via-purple-900 to-indigo-900 rounded-3xl shadow-2xl w-full max-w-6xl mx-auto overflow-hidden min-h-[600px] md:min-h-[700px]"
+                className="relative flex flex-col items-center justify-start p-2 md:p-4 bg-gradient-to-br from-pink-900 via-purple-900 to-indigo-900 rounded-3xl shadow-2xl w-full max-w-full mx-auto overflow-y-auto"
+                style={{ maxHeight: '95vh' }}
             >
                 {/* Animated background blobs */}
                 <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -417,15 +418,16 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.6, type: 'spring' }}
-                    className="relative z-10 mb-8 w-full"
+                    className="relative z-10 mb-8 w-full max-w-full px-2"
                 >
-                    <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-2xl">
+                    <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-2 md:p-4 shadow-2xl">
                         <div
-                            className="grid gap-4 md:gap-6 mx-auto"
+                            className="grid gap-2 md:gap-3 mx-auto w-full"
                             style={{
                                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                                maxWidth: gridSize === 3 ? '700px' : gridSize === 4 ? '800px' : '950px',
-                                minHeight: gridSize === 3 ? '700px' : gridSize === 4 ? '800px' : '950px',
+                                maxWidth: '100%',
+                                aspectRatio: '1',
+                                maxHeight: '70vh',
                             }}
                         >
                             {cards.map((card) => {

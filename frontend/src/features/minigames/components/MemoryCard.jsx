@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 
@@ -10,6 +10,17 @@ export default function MemoryCard({
     isLocked,
     showShakeAnimation,
 }) {
+    // Debug : log les props pour vérifier l'URL de l'image
+    useEffect(() => {
+        console.log('🃏 MemoryCard rendered:', {
+            cardId: card.id,
+            imageUrl: card.imageUrl,
+            isFlipped,
+            isMatched,
+            imageExists: !!card.imageUrl
+        });
+    }, [card.id, card.imageUrl, isFlipped, isMatched]);
+
     const handleClick = () => {
         console.log('🖱️ Card clicked:', card.id, { isLocked, isFlipped, isMatched });
         if (isLocked) {
@@ -128,17 +139,17 @@ export default function MemoryCard({
                         rotateY: 180,
                     }}
                 >
-                    <div className="w-full h-full bg-gradient-to-br from-purple-50 to-pink-50 relative flex items-center justify-center p-1">
-                        {/* Image - object-contain pour voir toute l'image */}
+                    <div className="w-full h-full bg-white relative flex items-center justify-center p-2 border-4 border-purple-400">
+                        {/* Image - SIMPLIFIÉE pour maximum de visibilité */}
                         <img
                             src={card.imageUrl}
                             alt="Carte mémoire"
-                            className="w-full h-full object-contain rounded-lg drop-shadow-lg"
-                            loading="lazy"
-                            style={{
-                                imageRendering: 'auto',
-                                maxWidth: '100%',
-                                maxHeight: '100%',
+                            className="max-w-full max-h-full object-contain"
+                            onLoad={() => console.log('✅ Image loaded:', card.imageUrl)}
+                            onError={(e) => {
+                                console.error('❌ Image failed to load:', card.imageUrl);
+                                e.target.style.border = '2px solid red';
+                                e.target.alt = 'Image non chargée';
                             }}
                         />
 

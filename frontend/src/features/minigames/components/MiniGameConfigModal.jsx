@@ -74,7 +74,11 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
                         memoryInstructionText: parsedContent.instructionText || prev.memoryInstructionText
                     }));
                 })
-                .catch(err => setError("Impossible de charger le jeu : " + err.message))
+                .catch(err => {
+                    console.error('❌ Load error:', err);
+                    const errorMsg = err?.message || err?.toString() || 'Erreur inconnue';
+                    setError("Impossible de charger le jeu : " + errorMsg);
+                })
                 .finally(() => setLoading(false));
         } else if (isOpen && !existingId) {
             // Reset for new creation
@@ -158,7 +162,9 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
             const imageUrl = await minigameService.uploadPuzzleImage(file);
             setConfig({...config, imageUrl});
         } catch (err) {
-            setError('Erreur lors de l\'upload de l\'image: ' + err.message);
+            console.error('❌ Upload error:', err);
+            const errorMsg = err?.message || err?.toString() || 'Erreur inconnue';
+            setError('Erreur lors de l\'upload de l\'image: ' + errorMsg);
         } finally {
             setUploadingImage(false);
         }
@@ -187,7 +193,9 @@ export default function MiniGameConfigModal({ isOpen, onClose, onSave, storyBloc
             const imageUrl = await minigameService.uploadPuzzleImage(file);
             setConfig({...config, imagePairs: [...config.imagePairs, imageUrl]});
         } catch (err) {
-            setError('Erreur lors de l\'upload de l\'image: ' + err.message);
+            console.error('❌ Upload error (Memory):', err);
+            const errorMsg = err?.message || err?.toString() || 'Erreur inconnue';
+            setError('Erreur lors de l\'upload de l\'image: ' + errorMsg);
         } finally {
             setUploadingImage(false);
         }
