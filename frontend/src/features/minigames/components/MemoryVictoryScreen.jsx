@@ -157,6 +157,8 @@ export default function MemoryVictoryScreen({
                             duration: 2,
                             repeat: Infinity,
                             repeatDelay: 1,
+                            type: 'tween',  // ✅ TWEEN pour supporter 3/4 keyframes
+                            ease: 'easeInOut',
                         }}
                         className="inline-block"
                     >
@@ -226,6 +228,8 @@ export default function MemoryVictoryScreen({
                                 duration: 2,
                                 repeat: Infinity,
                                 repeatDelay: 0.5,
+                                type: 'tween',  // ✅ TWEEN pour supporter 3/4 keyframes
+                                ease: 'easeInOut',
                             }}
                             className="text-8xl mb-4"
                         >

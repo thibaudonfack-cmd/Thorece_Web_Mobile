@@ -52,7 +52,6 @@ export default function MemoryCard({
                 }}
                 whileHover={!isFlipped && !isMatched && !isLocked ? {
                     scale: 1.1,
-                    rotate: [0, -2, 2, 0],
                 } : {}}
                 whileTap={!isFlipped && !isMatched && !isLocked ? { scale: 0.9 } : {}}
                 transition={{
@@ -79,10 +78,15 @@ export default function MemoryCard({
                             '0 20px 25px -5px rgba(236, 72, 153, 0.5)',
                         ],
                     } : {}}
-                    transition={showShakeAnimation ? { duration: 0.5 } : {
+                    transition={showShakeAnimation ? {
+                        duration: 0.5,
+                        type: 'tween',  // ✅ TWEEN pour supporter 6 keyframes
+                        ease: 'easeInOut'
+                    } : {
                         duration: 2,
                         repeat: Infinity,
                         ease: 'easeInOut',
+                        type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
                     }}
                 >
                     <div className="w-full h-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 relative overflow-hidden">
@@ -104,6 +108,8 @@ export default function MemoryCard({
                                         duration: 2,
                                         repeat: Infinity,
                                         delay: i * 0.2,
+                                        type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
+                                        ease: 'easeInOut',
                                     }}
                                 />
                             ))}

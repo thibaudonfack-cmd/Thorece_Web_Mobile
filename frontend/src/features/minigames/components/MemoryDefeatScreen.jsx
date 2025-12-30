@@ -98,6 +98,8 @@ export default function MemoryDefeatScreen({ reason = 'timeout', moves, pairsFou
                             duration: 2,
                             repeat: Infinity,
                             repeatDelay: 0.5,
+                            type: 'tween',  // ✅ TWEEN pour supporter 3/4 keyframes
+                            ease: 'easeInOut',
                         }}
                         className="inline-block"
                     >
@@ -172,6 +174,8 @@ export default function MemoryDefeatScreen({ reason = 'timeout', moves, pairsFou
                             transition={{
                                 duration: 1,
                                 repeat: Infinity,
+                                type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
+                                ease: 'easeInOut',
                             }}
                             className="text-5xl mb-3"
                         >

@@ -297,6 +297,7 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                             duration: 8,
                             repeat: Infinity,
                             ease: 'easeInOut',
+                            type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
                         }}
                         style={{ top: '10%', left: '10%' }}
                     />
@@ -312,6 +313,7 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                             repeat: Infinity,
                             ease: 'easeInOut',
                             delay: 1,
+                            type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
                         }}
                         style={{ bottom: '10%', right: '10%' }}
                     />
@@ -381,7 +383,12 @@ export default function MemoryGame({ onWin, onLose, gameId }) {
                                       }
                                     : {}
                             }
-                            transition={timeLeft < 30 ? { duration: 1, repeat: Infinity } : {}}
+                            transition={timeLeft < 30 ? {
+                                duration: 1,
+                                repeat: Infinity,
+                                type: 'tween',  // ✅ TWEEN pour supporter 3 keyframes
+                                ease: 'easeInOut'
+                            } : {}}
                             className={clsx(
                                 'flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 rounded-xl shadow-lg',
                                 timeLeft < 30
